@@ -41,6 +41,11 @@ task build: :compile do
   FileUtils.mv(gem_file, File.join("pkg", gem_file))
 end
 
+desc "Publish platform gems"
+task :release do
+  Dir["pkg/*.gem"].sort.each { |gem_file| sh "gem", "push", gem_file }
+end
+
 desc "Run Ruby tests and style checks"
 task default: %i[compile test rubocop stree]
 
