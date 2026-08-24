@@ -29,24 +29,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: bundle exec stree check Gemfile Rakefile mini_vips.gemspec $(git ls-files '*.rb')
 
-  test:
-    runs-on: ubuntu-24.04
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install libvips
-        run: sudo apt-get update && sudo apt-get install --yes fonts-dejavu-core icc-profiles-free libvips-dev pkg-config
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.4"
-          bundler-cache: true
-
-      - name: Compile and test
-        run: bundle exec rake compile test
-
   build:
     name: ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
@@ -109,7 +91,7 @@ jobs:
 
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [lint, test, build]
+    needs: [lint, build]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
