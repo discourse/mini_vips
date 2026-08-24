@@ -1,7 +1,6 @@
 #include <glib.h>
 #include <limits.h>
 #include <math.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,8 +15,6 @@ typedef struct {
   option_t items[32];
   int count;
 } options_t;
-
-#define MAX_DIRECT_RESIZE_FACTOR 256
 
 static const char *option(options_t *options, const char *key) {
   for (int index = 0; index < options->count; index++) {
@@ -186,7 +183,6 @@ static int command_letter_avatar(options_t *options) {
 static int command_resize_letter_avatar(options_t *options) {
   const char *input = required_option(options, "input");
   const char *output = required_option(options, "output");
-  const char *profile = required_option(options, "profile");
   int size = integer_option(options, "size", 0);
   if (size < 1 || size > 4096) {
     report_error("size must be 1..4096");
@@ -195,16 +191,13 @@ static int command_resize_letter_avatar(options_t *options) {
 
   allow_loader_family("VipsForeignLoadPng");
   VipsImage *thumbnail = NULL;
-  VipsImage *profiled = NULL;
   VipsImage *sharpened = NULL;
   int result = vips_thumbnail(input, &thumbnail, size, "height", size, "size",
                               VIPS_SIZE_BOTH, "crop", VIPS_INTERESTING_CENTRE,
                               NULL);
   if (result == 0) {
-    result = vips_icc_transform(thumbnail, &profiled, profile, NULL);
-  }
-  if (result == 0) {
-    result = vips_sharpen(profiled, &sharpened, "sigma", 0.5, "m1", 0.7, NULL);
+    result =
+        vips_sharpen(thumbnail, &sharpened, "sigma", 0.5, "m1", 0.7, NULL);
   }
   if (result == 0) {
     result = vips_pngsave(sharpened, output, "palette", TRUE, "Q", 100,
@@ -214,20 +207,13 @@ static int command_resize_letter_avatar(options_t *options) {
     report_vips_error();
   }
   VIPS_UNREF(thumbnail);
-  VIPS_UNREF(profiled);
   VIPS_UNREF(sharpened);
   return result == 0 ? 0 : 1;
 }
 
 static int command_dominant_color(options_t *options) {
   const char *input = required_option(options, "input");
-  VipsImage *image = NULL;
-  VipsImage *double_image = NULL;
-  VipsImage *premultiplied = NULL;
-  VipsImage *bordered = NULL;
-  VipsImage *resized = NULL;
-  VipsImage *resized_pixel = NULL;
-  VipsImage *unpremultiplied = NULL;
+  VipsImage *thumbnail = NULL;
   double *components = NULL;
   int result = 1;
 
@@ -238,28 +224,20 @@ static int command_dominant_color(options_t *options) {
     goto cleanup;
   }
 
-  if (strcmp(loader, "VipsForeignLoadHeifFile") == 0) {
-    image = vips_image_new_from_file(input, "access", VIPS_ACCESS_SEQUENTIAL,
-                                     "fail_on", VIPS_FAIL_ON_NONE, "thumbnail",
-                                     FALSE, NULL);
-  } else {
-    image = vips_image_new_from_file(input, "access", VIPS_ACCESS_SEQUENTIAL,
-                                     "fail_on", VIPS_FAIL_ON_NONE, NULL);
-  }
-  if (!image) {
+  if (vips_thumbnail(input, &thumbnail, 1, "height", 1, "size",
+                     VIPS_SIZE_FORCE, "fail_on", VIPS_FAIL_ON_NONE, NULL) !=
+      0) {
     report_vips_error();
     goto cleanup;
   }
-
-  int width = vips_image_get_width(image);
-  int height = vips_image_get_height(image);
-  if (width < 1 || height < 1 || width > INT_MAX / 7 || height > INT_MAX / 7) {
-    report_error("unsupported image dimensions");
+  if (vips_image_get_width(thumbnail) != 1 ||
+      vips_image_get_height(thumbnail) != 1) {
+    report_error("dominant color did not produce one pixel");
     goto cleanup;
   }
 
-  VipsBandFormat format = vips_image_get_format(image);
-  int bands = vips_image_get_bands(image);
+  VipsBandFormat format = vips_image_get_format(thumbnail);
+  int bands = vips_image_get_bands(thumbnail);
   if ((format != VIPS_FORMAT_UCHAR && format != VIPS_FORMAT_USHORT) ||
       bands < 1 || bands > 4) {
     report_error("unsupported pixel format");
@@ -267,49 +245,8 @@ static int command_dominant_color(options_t *options) {
   }
   double sample_max = format == VIPS_FORMAT_USHORT ? 65535.0 : 255.0;
 
-  result = vips_cast(image, &double_image, VIPS_FORMAT_DOUBLE, NULL);
-  bool has_alpha = vips_image_hasalpha(image);
-  VipsImage *resize_input = double_image;
-  if (result == 0 && has_alpha) {
-    result = vips_premultiply(double_image, &premultiplied, "max_alpha",
-                              sample_max, NULL);
-    resize_input = premultiplied;
-  }
-  bool direct_resize =
-      width <= MAX_DIRECT_RESIZE_FACTOR && height <= MAX_DIRECT_RESIZE_FACTOR;
-  if (result == 0 && direct_resize && has_alpha) {
-    result =
-        vips_embed(resize_input, &bordered, width * 3, height * 3, width * 7,
-                   height * 7, "extend", VIPS_EXTEND_BLACK, NULL);
-    if (result == 0) {
-      result =
-          vips_resize(bordered, &resized, 1.0 / width, "vscale", 1.0 / height,
-                      "kernel", VIPS_KERNEL_LANCZOS3, "gap", 0.0, NULL);
-    }
-    if (result == 0) {
-      result = vips_extract_area(resized, &resized_pixel, 3, 3, 1, 1, NULL);
-    }
-  } else if (result == 0) {
-    result = vips_resize(resize_input, &resized_pixel, 1.0 / width, "vscale",
-                         1.0 / height, "kernel", VIPS_KERNEL_LANCZOS3, "gap",
-                         direct_resize ? 0.0 : 2.0, NULL);
-  }
-  if (result == 0 && has_alpha) {
-    result = vips_unpremultiply(resized_pixel, &unpremultiplied, "max_alpha",
-                                sample_max, NULL);
-  }
-  VipsImage *pixel = has_alpha ? unpremultiplied : resized_pixel;
-  if (result != 0) {
-    report_vips_error();
-    goto cleanup;
-  }
-  if (vips_image_get_width(pixel) != 1 || vips_image_get_height(pixel) != 1) {
-    report_error("dominant color did not produce one pixel");
-    goto cleanup;
-  }
-
   int component_count = 0;
-  if (vips_getpoint(pixel, &components, &component_count, 0, 0, NULL) != 0 ||
+  if (vips_getpoint(thumbnail, &components, &component_count, 0, 0, NULL) != 0 ||
       !components || component_count != bands) {
     report_error("unable to read dominant color pixel");
     goto cleanup;
@@ -327,17 +264,11 @@ static int command_dominant_color(options_t *options) {
 
 cleanup:
   g_free(components);
-  VIPS_UNREF(image);
-  VIPS_UNREF(double_image);
-  VIPS_UNREF(premultiplied);
-  VIPS_UNREF(bordered);
-  VIPS_UNREF(resized);
-  VIPS_UNREF(resized_pixel);
-  VIPS_UNREF(unpremultiplied);
+  VIPS_UNREF(thumbnail);
   return result;
 }
 
-static int command_topic_og(options_t *options) {
+static int command_svg_to_png(options_t *options) {
   const char *input = required_option(options, "input");
   const char *output = required_option(options, "output");
   allow_loader_family("VipsForeignLoadSvg");
@@ -382,8 +313,8 @@ int main(int argc, char **argv) {
     result = command_resize_letter_avatar(&options);
   } else if (strcmp(command, "dominant-color") == 0) {
     result = command_dominant_color(&options);
-  } else if (strcmp(command, "topic-og") == 0) {
-    result = command_topic_og(&options);
+  } else if (strcmp(command, "svg-to-png") == 0) {
+    result = command_svg_to_png(&options);
   } else {
     report_error("unsupported helper command");
     result = 2;

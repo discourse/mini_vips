@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Fixed-purpose letter-avatar generation and resizing, dominant-color, and topic Open Graph image operations.
+- The `version`, `letter-avatar`, `resize-letter-avatar`, `dominant-color`, and `svg-to-png` CLI operations.
 - Precompiled glibc Linux gems for x86-64 and ARM64, and a macOS gem for ARM64.
 
 [Unreleased]: https://github.com/discourse/mini_vips/compare/v0.1.0...HEAD
