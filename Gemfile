@@ -4,6 +4,7 @@ source "https://rubygems.org"
 
 gemspec
 
+gem "chunky_png"
 gem "minitest"
 gem "rake"
 gem "rubocop-discourse", require: false

@@ -176,10 +176,30 @@ static int command_version(void) {
   return 0;
 }
 
+static char *bundled_font_path(const char *program) {
+  char *resolved_program = g_find_program_in_path(program);
+  char *program_directory =
+      g_path_get_dirname(resolved_program ? resolved_program : program);
+  char *font_path =
+      g_build_filename(program_directory, "NotoSans-Regular.ttf", NULL);
+  g_free(resolved_program);
+  g_free(program_directory);
+  return font_path;
+}
+
 static int command_letter_avatar(const char *letter, const char *output,
-                                 options_t *options) {
-  const char *font_family = required_option(options, "font-family");
-  const char *font_file = option(options, "font-file");
+                                 const char *program, options_t *options) {
+  int size = integer_option(options, "size", 360);
+  if (size < 1 || size > 4096) {
+    report_error("--size must be 1..4096");
+    return 2;
+  }
+  int letter_size = integer_option(options, "letter-size", (size * 7 + 4) / 9);
+  if (letter_size < 1 || letter_size > 4096) {
+    report_error("--letter-size must be 1..4096");
+    return 2;
+  }
+
   int background_channels[3];
   color_option(options, "background-color", background_channels);
   if (vips_type_find("VipsOperation", "text") == 0) {
@@ -191,7 +211,8 @@ static int command_letter_avatar(const char *letter, const char *output,
   char *markup = g_strdup_printf(
       "<span foreground=\"#ffffff\" alpha=\"80%%\">%s</span>",
       escaped_letter);
-  char *font = g_strdup_printf("%s 280", font_family);
+  char *font = g_strdup_printf("Noto Sans %d", letter_size);
+  char *font_file = bundled_font_path(program);
   VipsImage *text = NULL;
   VipsImage *canvas = NULL;
   VipsImage *flattened = NULL;
@@ -205,17 +226,11 @@ static int command_letter_avatar(const char *letter, const char *output,
   VipsArrayDouble *flattened_background =
       vips_array_double_new(flattened_background_values, 3);
 
-  int result;
-  if (font_file && font_file[0]) {
-    result = vips_text(&text, markup, "font", font, "dpi", 72, "fontfile",
-                       font_file, "rgba", TRUE, NULL);
-  } else {
-    result = vips_text(&text, markup, "font", font, "dpi", 72, "rgba", TRUE,
-                       NULL);
-  }
+  int result = vips_text(&text, markup, "font", font, "dpi", 72, "fontfile",
+                         font_file, "rgba", TRUE, NULL);
   if (result == 0) {
-    result = vips_gravity(text, &canvas, VIPS_COMPASS_DIRECTION_CENTRE, 360,
-                          360, "extend", VIPS_EXTEND_BACKGROUND, "background",
+    result = vips_gravity(text, &canvas, VIPS_COMPASS_DIRECTION_CENTRE, size,
+                          size, "extend", VIPS_EXTEND_BACKGROUND, "background",
                           canvas_background, NULL);
   }
   if (result == 0) {
@@ -234,6 +249,7 @@ static int command_letter_avatar(const char *letter, const char *output,
   g_free(escaped_letter);
   g_free(markup);
   g_free(font);
+  g_free(font_file);
   vips_area_unref((VipsArea *)canvas_background);
   vips_area_unref((VipsArea *)flattened_background);
   return result == 0 ? 0 : 1;
@@ -270,6 +286,8 @@ static int command_resize_png(const char *input, const char *output,
 }
 
 static int command_dominant_color(const char *input) {
+  VipsImage *source = NULL;
+  VipsImage *opaque = NULL;
   VipsImage *thumbnail = NULL;
   double *components = NULL;
   int result = 1;
@@ -281,9 +299,22 @@ static int command_dominant_color(const char *input) {
     goto cleanup;
   }
 
-  if (vips_thumbnail(input, &thumbnail, 1, "height", 1, "size",
-                     VIPS_SIZE_FORCE, "fail_on", VIPS_FAIL_ON_NONE, NULL) !=
-      0) {
+  source = vips_image_new_from_file(input, "access", VIPS_ACCESS_SEQUENTIAL,
+                                    "fail_on", VIPS_FAIL_ON_NONE, NULL);
+  if (!source) {
+    report_vips_error();
+    goto cleanup;
+  }
+  if (vips_image_hasalpha(source)) {
+    if (vips_flatten(source, &opaque, NULL) != 0) {
+      report_vips_error();
+      goto cleanup;
+    }
+  } else {
+    opaque = g_object_ref(source);
+  }
+  if (vips_thumbnail_image(opaque, &thumbnail, 1, "height", 1, "size",
+                           VIPS_SIZE_FORCE, NULL) != 0) {
     report_vips_error();
     goto cleanup;
   }
@@ -321,6 +352,8 @@ static int command_dominant_color(const char *input) {
 
 cleanup:
   g_free(components);
+  VIPS_UNREF(source);
+  VIPS_UNREF(opaque);
   VIPS_UNREF(thumbnail);
   return result;
 }
@@ -367,9 +400,9 @@ int main(int argc, char **argv) {
     const char *letter = required_argument(argc, argv, 2, "letter");
     const char *output = required_argument(argc, argv, 3, "out");
     parse_options(argc, argv, 4, &options);
-    const char *allowed[] = {"background-color", "font-family", "font-file"};
+    const char *allowed[] = {"background-color", "size", "letter-size"};
     validate_options(&options, allowed, 3);
-    result = command_letter_avatar(letter, output, &options);
+    result = command_letter_avatar(letter, output, argv[0], &options);
   } else if (strcmp(command, "resize-png") == 0) {
     const char *input = required_argument(argc, argv, 2, "in");
     const char *output = required_argument(argc, argv, 3, "out");

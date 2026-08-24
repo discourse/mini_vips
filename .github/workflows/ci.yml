@@ -46,14 +46,15 @@ jobs:
             container: discourse/ruby:3.4-trixie-slim
           - platform: arm64-darwin
             runner: macos-15
-            macos_deployment_target: "13.0"
+          - platform: x86_64-darwin
+            runner: macos-15-intel
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
-        run: apt-get update && apt-get install --yes build-essential fonts-dejavu-core icc-profiles-free libvips-dev pkg-config
+        run: apt-get update && apt-get install --yes build-essential libvips-dev pkg-config
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
@@ -69,18 +70,7 @@ jobs:
         run: bundle install
 
       - name: Build and test platform gem
-        env:
-          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos_deployment_target }}
-        run: |
-          bundle exec rake build
-          bundle exec rake test
-
-      - name: Test installed gem
-        run: |
-          install_dir="$(mktemp -d)"
-          gem install --install-dir "$install_dir" --local pkg/*.gem --no-document
-          minitest_lib="$(bundle show minitest)/lib"
-          GEM_HOME="$install_dir" GEM_PATH="$install_dir" ruby -I"$minitest_lib" test/mini_vips_test.rb
+        run: bundle exec rake test:installed
 
       - name: Upload platform gem
         uses: actions/upload-artifact@v4

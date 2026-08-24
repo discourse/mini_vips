@@ -2,7 +2,7 @@
 
 mini_vips packages the native libvips image operations used by [discourse/discourse](https://github.com/discourse/discourse). It supports letter-avatar generation and resizing, dominant-color extraction, and SVG-to-PNG conversion. It does not expose arbitrary libvips operations.
 
-The platform gems link dynamically to libvips 8.13 or newer. Follow the [libvips building and installation instructions](https://github.com/libvips/libvips/wiki#building-and-installing) before using the helper. Precompiled gems are available for glibc Linux on x86-64 and ARM64, and macOS on ARM64.
+The platform gems link dynamically to libvips 8.13 or newer. Follow the [libvips building and installation instructions](https://github.com/libvips/libvips/wiki#building-and-installing) before using the helper. Precompiled gems are available for glibc Linux and macOS on x86-64 and ARM64.
 
 ## CLI
 
@@ -25,18 +25,15 @@ $ mini_vips version
 
 ### `letter-avatar`
 
-Generate a 360 by 360 letter-avatar PNG.
+Generate a square letter-avatar PNG, 360 by 360 pixels by default.
 
 ```text
-$ mini_vips letter-avatar A avatar.png \
-    --background-color C67D28 \
-    --font-family "Noto Sans" \
-    --font-file /path/to/NotoSans-Regular.woff2
+$ mini_vips letter-avatar A avatar.png --background-color C67D28
 ```
 
 ```text
 usage:
-   letter-avatar letter out --background-color color --font-family family [--font-file file]
+   letter-avatar letter out --background-color color [--size pixels] [--letter-size pixels]
 
 where:
    letter             - Text displayed in the avatar
@@ -45,11 +42,15 @@ where:
 options:
    background-color   - Six-character RGB background color
                         required
-   font-family        - Font family used for the letter
-                        required
-   font-file          - Font file to load when the family is not installed
-                        optional
+   size               - Output width and height in pixels
+                        optional, default: 360
+                        min: 1, max: 4096
+   letter-size        - Letter size in pixels
+                        optional, default: 7/9 of size
+                        min: 1, max: 4096
 ```
+
+Letter avatars use the bundled Noto Sans font. The font is distributed under the SIL Open Font License 1.1 included in the platform gem.
 
 ### `resize-png`
 
@@ -131,4 +132,10 @@ Use the default task during development. It compiles the native helper, runs the
 
 ```sh
 bundle exec rake
+```
+
+Build, install, and test the platform gem with:
+
+```sh
+bundle exec rake test:installed
 ```

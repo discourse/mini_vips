@@ -12,7 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - The `version`, `letter-avatar`, `resize-png`, `dominant-color`, and `svg-to-png` CLI operations.
-- Precompiled glibc Linux gems for x86-64 and ARM64, and a macOS gem for ARM64.
+- A bundled Noto Sans font for consistent letter-avatar rendering.
+- Precompiled glibc Linux and macOS gems for x86-64 and ARM64.
 
 [Unreleased]: https://github.com/discourse/mini_vips/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/discourse/mini_vips/releases/tag/v0.1.0
