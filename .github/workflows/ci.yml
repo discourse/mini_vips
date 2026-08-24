@@ -127,11 +127,14 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [lint, test, build]
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
+        with:
+          ruby-version: "3.4"
 
       - name: Download platform gems
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
@@ -139,10 +142,10 @@ jobs:
           path: pkg
           merge-multiple: true
 
-      - name: Release gems
-        uses: discourse/publish-rubygems-action@4bd305c65315cb691bad1e8de97a87aaf29a0a85
+      - name: Publish gems
         env:
-          RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
-          RELEASE_COMMAND: bundle exec rake release:platforms
-          GIT_EMAIL: team@discourse.org
-          GIT_NAME: discoursebot
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+        run: |
+          for gem_file in pkg/*.gem; do
+            gem push "$gem_file"
+          done
