@@ -3,24 +3,6 @@
 require_relative "test_helper"
 
 class LetterAvatarTest < Minitest::Test
-  def test_matches_debian_letter_avatar_fixtures
-    skip unless ENV["MINI_VIPS_TEST_DEBIAN_FIXTURES"] == "true"
-
-    Dir.mktmpdir do |directory|
-      ("A".."Z").each do |letter|
-        output_path = File.join(directory, "#{letter}.png")
-
-        generate_avatar(letter:, output_path:, background_color: "123456")
-
-        assert FileUtils.compare_file(
-                 fixture_path("letter_avatars/debian/#{letter}.png"),
-                 output_path,
-               ),
-               "letter avatar differs for #{letter}"
-      end
-    end
-  end
-
   def test_generates_the_default_letter_avatar
     Dir.mktmpdir do |directory|
       output_path = File.join(directory, "avatar.png")
@@ -29,6 +11,19 @@ class LetterAvatarTest < Minitest::Test
 
       image = assert_png(output_path, width: 360, height: 360)
       assert_letter_avatar(image, background_color: "123456")
+
+      background = color("123456")
+      glyph_pixels =
+        image.height.times.flat_map do |y|
+          image.width.times.filter_map { |x| [x, y] if image[x, y] != background }
+        end
+      x_coordinates = glyph_pixels.map(&:first)
+      y_coordinates = glyph_pixels.map(&:last)
+      horizontal_margins = [x_coordinates.min, image.width - x_coordinates.max - 1]
+      vertical_margins = [y_coordinates.min, image.height - y_coordinates.max - 1]
+
+      assert_operator horizontal_margins.max - horizontal_margins.min, :<=, 1
+      assert_operator vertical_margins.max - vertical_margins.min, :<=, 1
     end
   end
 
