@@ -2,7 +2,7 @@
 
 mini_vips packages a small native helper for fixed-purpose image operations powered by libvips. It supports letter-avatar generation and resizing, dominant-color extraction, and topic Open Graph image rendering. It does not expose arbitrary libvips operations.
 
-The platform gems link dynamically to libvips 8.13 or newer. Install libvips with your operating system package manager before using the helper. The GNU builds target Debian 12 and glibc 2.36. The musl builds target Alpine 3.21 and musl 1.2.5. The macOS builds set a macOS 13.0 deployment target.
+The platform gems link dynamically to libvips 8.13 or newer. Install libvips with your operating system package manager before using the helper. The Linux builds target Debian 12 and glibc 2.36. The macOS builds set a macOS 13.0 deployment target.
 
 ## Usage
 
@@ -24,7 +24,7 @@ mini_vips only resolves its executable. It does not run commands or configure a 
 
 ## Development
 
-Install libvips and pkg-config. Installing a musl build requires Bundler 2.5.6 or newer. Then run:
+Install libvips and pkg-config, then run:
 
 ```sh
 bundle install
