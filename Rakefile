@@ -6,7 +6,6 @@ require "rbconfig"
 require "rubygems/package"
 require "rake/testtask"
 require "tmpdir"
-require_relative "lib/mini_vips"
 
 platforms = %w[aarch64-linux-gnu arm64-darwin x86_64-darwin x86_64-linux-gnu].freeze
 host_cpu = RbConfig::CONFIG.fetch("host_cpu")
@@ -20,9 +19,11 @@ local_platform =
     abort "unsupported build platform: #{host_cpu}-#{host_os}"
   end
 build_platform = -> { ENV.fetch("MINI_VIPS_PLATFORM", local_platform) }
+gem_version = -> { Gem::Specification.load("mini_vips.gemspec").version }
 
 Rake::TestTask.new do |task|
-  task.libs << "lib" << "test"
+  task.libs << "lib" unless ENV["MINI_VIPS_INSTALLED_TEST"] == "1"
+  task.libs << "test"
   task.pattern = "test/**/*_test.rb"
 end
 
@@ -58,27 +59,36 @@ namespace :test do
   desc "Test the installed platform gem"
   task installed: :build do
     Dir.mktmpdir do |install_directory|
-      gem_file = File.join("pkg", "mini_vips-#{MiniVips::VERSION}-#{build_platform.call}.gem")
-      test_require_paths =
-        %w[chunky_png minitest].flat_map do |gem_name|
-          Gem.loaded_specs.fetch(gem_name).full_require_paths
-        end
+      gem_file = File.join("pkg", "mini_vips-#{gem_version.call}-#{build_platform.call}.gem")
+      package_directory = File.join(install_directory, "mini_vips")
+      package = Gem::Package.new(gem_file)
+      package.extract_files(package_directory)
+      File.write(File.join(package_directory, "mini_vips.gemspec"), package.spec.to_ruby)
+      gemfile = File.join(install_directory, "Gemfile")
+      File.write(gemfile, <<~GEMFILE)
+          source "https://rubygems.org"
+
+          gem "chunky_png"
+          gem "minitest"
+          gem "mini_vips", path: #{package_directory.inspect}
+          gem "rake"
+        GEMFILE
+      bundle_environment = {
+        "BUNDLE_GEMFILE" => gemfile,
+        "BUNDLE_IGNORE_CONFIG" => "1",
+        "BUNDLE_PATH" => File.join(install_directory, "bundle"),
+        "MINI_VIPS_INSTALLED_TEST" => "1",
+      }
+
       Bundler.with_unbundled_env do
-        sh(
-          "gem",
-          "install",
-          "--install-dir",
-          install_directory,
-          "--local",
-          gem_file,
-          "--no-document",
-        )
-        sh(
-          { "GEM_HOME" => install_directory, "GEM_PATH" => install_directory },
-          RbConfig.ruby,
-          "-I#{test_require_paths.join(File::PATH_SEPARATOR)}",
-          "test/all_tests.rb",
-        )
+        sh bundle_environment, "bundle", "install"
+        sh bundle_environment,
+           "bundle",
+           "exec",
+           "rake",
+           "--rakefile",
+           File.expand_path("Rakefile"),
+           "test"
       end
     end
   end
@@ -87,7 +97,7 @@ end
 desc "Publish platform gems"
 task :release do
   Dir["pkg/*.gem"].sort.each { |gem_file| sh "gem", "push", gem_file }
-  tag = "v#{MiniVips::VERSION}"
+  tag = "v#{gem_version.call}"
   sh "git", "tag", tag
   sh "git", "push", "origin", tag
 end
