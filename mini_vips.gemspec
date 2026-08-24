@@ -10,7 +10,7 @@ Gem::Specification.new do |specification|
   specification.summary = "Small, fixed-purpose image operations powered by libvips"
   specification.homepage = "https://github.com/discourse/mini_vips"
   specification.license = "MIT"
-  specification.required_ruby_version = ">= 3.2"
+  specification.required_ruby_version = "~> 3.4.0"
   specification.required_rubygems_version = ">= 3.3.22"
   specification.platform = ENV.fetch("MINI_VIPS_PLATFORM", Gem::Platform.local.to_s)
 
