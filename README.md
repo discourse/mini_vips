@@ -24,7 +24,7 @@ mini_vips only resolves its executable. It does not run commands or configure a 
 
 ## Development
 
-Install libvips and pkg-config first. Then set up the repository once by installing its Ruby development dependencies:
+Install [libvips](https://github.com/libvips/libvips/wiki#building-and-installing) and pkg-config first. Then set up the repository once by installing its Ruby development dependencies:
 
 ```sh
 bundle install
