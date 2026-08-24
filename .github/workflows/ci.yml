@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@v4
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
+        uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.4"
           bundler-cache: true
@@ -33,13 +33,13 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@v4
 
       - name: Install libvips
         run: sudo apt-get update && sudo apt-get install --yes fonts-dejavu-core icc-profiles-free libvips-dev pkg-config
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
+        uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.4"
           bundler-cache: true
@@ -70,7 +70,7 @@ jobs:
             macos_deployment_target: "13.0"
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@v4
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -82,7 +82,7 @@ jobs:
 
       - name: Setup Ruby
         if: runner.os == 'macOS'
-        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
+        uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.4"
 
@@ -117,7 +117,7 @@ jobs:
           GEM_HOME="$install_dir" GEM_PATH="$install_dir" ruby -I"$minitest_lib" test/mini_vips_test.rb
 
       - name: Upload platform gem
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@v4
         with:
           name: mini_vips-${{ matrix.platform }}
           path: pkg/*.gem
@@ -131,16 +131,16 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@v4
 
       - name: Download platform gems
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@v4
         with:
           path: pkg
           merge-multiple: true
 
       - name: Release Gem
-        uses: discourse/publish-rubygems-action@4bd305c65315cb691bad1e8de97a87aaf29a0a85
+        uses: discourse/publish-rubygems-action@v3
         env:
           RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
           GIT_EMAIL: team@discourse.org
