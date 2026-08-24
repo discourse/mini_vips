@@ -49,6 +49,24 @@ static int integer_option(options_t *options, const char *key, int fallback) {
   return (int)parsed;
 }
 
+static void color_option(options_t *options, const char *key, int channels[3]) {
+  const char *value = required_option(options, key);
+  if (strlen(value) != 6) {
+    fprintf(stderr, "--%s must be a six-character RGB value\n", key);
+    exit(2);
+  }
+
+  for (int index = 0; index < 3; index++) {
+    int high = g_ascii_xdigit_value(value[index * 2]);
+    int low = g_ascii_xdigit_value(value[index * 2 + 1]);
+    if (high < 0 || low < 0) {
+      fprintf(stderr, "--%s must be a six-character RGB value\n", key);
+      exit(2);
+    }
+    channels[index] = high * 16 + low;
+  }
+}
+
 static void parse_options(int argc, char **argv, options_t *options) {
   options->count = 0;
   for (int index = 2; index < argc; index++) {
@@ -125,35 +143,42 @@ static int command_version(void) {
 
 static int command_letter_avatar(options_t *options) {
   const char *output = required_option(options, "output");
-  const char *markup = required_option(options, "markup");
-  const char *font = required_option(options, "font");
-  const char *fontfile = required_option(options, "fontfile");
-  int red = integer_option(options, "red", -1);
-  int green = integer_option(options, "green", -1);
-  int blue = integer_option(options, "blue", -1);
-
-  if (red < 0 || red > 255 || green < 0 || green > 255 || blue < 0 ||
-      blue > 255) {
-    report_error("background channels must be 0..255");
-    return 1;
-  }
+  const char *letter = required_option(options, "letter");
+  const char *font_family = required_option(options, "font-family");
+  const char *font_file = option(options, "font-file");
+  int background_channels[3];
+  color_option(options, "background-color", background_channels);
   if (vips_type_find("VipsOperation", "text") == 0) {
     report_error("libvips has no Pango text renderer");
     return 1;
   }
 
+  char *escaped_letter = g_markup_escape_text(letter, -1);
+  char *markup = g_strdup_printf(
+      "<span foreground=\"#ffffff\" alpha=\"80%%\">%s</span>",
+      escaped_letter);
+  char *font = g_strdup_printf("%s 280", font_family);
   VipsImage *text = NULL;
   VipsImage *canvas = NULL;
   VipsImage *flattened = NULL;
-  double canvas_background_values[4] = {red, green, blue, 255};
-  double flattened_background_values[3] = {red, green, blue};
+  double canvas_background_values[4] = {
+      background_channels[0], background_channels[1], background_channels[2],
+      255};
+  double flattened_background_values[3] = {
+      background_channels[0], background_channels[1], background_channels[2]};
   VipsArrayDouble *canvas_background =
       vips_array_double_new(canvas_background_values, 4);
   VipsArrayDouble *flattened_background =
       vips_array_double_new(flattened_background_values, 3);
 
-  int result = vips_text(&text, markup, "font", font, "dpi", 72, "fontfile",
-                         fontfile, "rgba", TRUE, NULL);
+  int result;
+  if (font_file && font_file[0]) {
+    result = vips_text(&text, markup, "font", font, "dpi", 72, "fontfile",
+                       font_file, "rgba", TRUE, NULL);
+  } else {
+    result = vips_text(&text, markup, "font", font, "dpi", 72, "rgba", TRUE,
+                       NULL);
+  }
   if (result == 0) {
     result = vips_gravity(text, &canvas, VIPS_COMPASS_DIRECTION_CENTRE, 360,
                           360, "extend", VIPS_EXTEND_BACKGROUND, "background",
@@ -172,6 +197,9 @@ static int command_letter_avatar(options_t *options) {
   VIPS_UNREF(text);
   VIPS_UNREF(canvas);
   VIPS_UNREF(flattened);
+  g_free(escaped_letter);
+  g_free(markup);
+  g_free(font);
   vips_area_unref((VipsArea *)canvas_background);
   vips_area_unref((VipsArea *)flattened_background);
   return result == 0 ? 0 : 1;

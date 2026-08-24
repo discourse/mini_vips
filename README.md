@@ -18,39 +18,52 @@ mini_vips version
 
 ### `letter-avatar`
 
-Render Pango markup on a 360 by 360 RGB PNG:
+Generate a 360 by 360 letter avatar with centered white text on the selected background color:
 
 ```text
-mini_vips letter-avatar --output PATH --markup TEXT --font NAME --fontfile PATH --red 0..255 --green 0..255 --blue 0..255
+mini_vips letter-avatar --letter TEXT --background-color RRGGBB --font-family NAME [--font-file PATH] --output PATH
 ```
 
-`--font` is a Pango font description, `--fontfile` is the font file to load, and the red, green, and blue values set the background color.
+- `--letter` sets the text shown in the avatar.
+- `--background-color` sets the background using a six-character RGB value.
+- `--font-family` selects the font family.
+- `--font-file` optionally loads the family from a font file when it is not installed.
+- `--output` sets the destination PNG path.
 
 ### `resize-letter-avatar`
 
-Resize and center-crop a letter-avatar PNG, sharpen it, and save a square PNG:
+Create a square letter avatar at the requested size:
 
 ```text
 mini_vips resize-letter-avatar --input PATH --output PATH --size 1..4096
 ```
 
+- `--input` sets the source letter-avatar PNG path.
+- `--output` sets the destination PNG path.
+- `--size` sets both output dimensions in pixels, from 1 through 4096.
+
 ### `dominant-color`
 
-Resize a supported image to one pixel and print its uppercase six-character RGB value:
+Print a representative color for a supported image as an uppercase six-character RGB value:
 
 ```text
 mini_vips dominant-color --input PATH
 ```
 
+- `--input` sets the source image path.
+
 Supported inputs are JPEG, PNG, GIF, WebP, HEIF, and JPEG XL. Transparent pixels contribute black when calculating the color.
 
 ### `svg-to-png`
 
-Render an SVG, flatten its transparency, and save a PNG:
+Convert an SVG into an opaque PNG:
 
 ```text
 mini_vips svg-to-png --input PATH --output PATH
 ```
+
+- `--input` sets the source SVG path.
+- `--output` sets the destination PNG path.
 
 Commands with an `--output` option write the generated image there. The executable returns 0 on success, 1 when image processing fails, and 2 when the command is unsupported or a required value is missing or invalid. Errors are written to standard error.
 

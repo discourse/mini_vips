@@ -59,6 +59,16 @@ class MiniVipsTest < Minitest::Test
     end
   end
 
+  def test_letter_avatar_command_with_installed_font
+    Dir.mktmpdir do |directory|
+      output_path = File.join(directory, "avatar.png")
+
+      generate_avatar(output_path, include_font_file: false)
+
+      assert File.size?(output_path)
+    end
+  end
+
   def test_resize_letter_avatar_command
     Dir.mktmpdir do |directory|
       input_path = File.join(directory, "avatar.png")
@@ -124,24 +134,20 @@ class MiniVipsTest < Minitest::Test
 
   private
 
-  def generate_avatar(output_path)
-    run_helper(
+  def generate_avatar(output_path, include_font_file: true)
+    arguments = [
       "letter-avatar",
       "--output",
       output_path,
-      "--markup",
-      '<span foreground="#FFFFFF">A</span>',
-      "--font",
-      font_name,
-      "--fontfile",
-      font_path,
-      "--red",
-      "18",
-      "--green",
-      "52",
-      "--blue",
-      "86",
-    )
+      "--letter",
+      "A",
+      "--font-family",
+      font_family,
+      "--background-color",
+      "123456",
+    ]
+    arguments.push("--font-file", font_path) if include_font_file
+    run_helper(*arguments)
   end
 
   def run_helper(*arguments)
@@ -154,10 +160,10 @@ class MiniVipsTest < Minitest::Test
     @font_path ||= FONT_PATHS.find { |path| File.file?(path) } || raise("No test font found")
   end
 
-  def font_name
-    return "DejaVu Sans 180" if File.basename(font_path).start_with?("DejaVu")
-    return "Helvetica 180" if File.basename(font_path).start_with?("Helvetica")
+  def font_family
+    return "DejaVu Sans" if File.basename(font_path).start_with?("DejaVu")
+    return "Helvetica" if File.basename(font_path).start_with?("Helvetica")
 
-    "Arial 180"
+    "Arial"
   end
 end
