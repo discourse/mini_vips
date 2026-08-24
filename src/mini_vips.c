@@ -110,9 +110,6 @@ static int initialize_vips(const char *program) {
     return -1;
   }
   block_loaders();
-  vips_cache_set_max(0);
-  vips_cache_set_max_mem(0);
-  vips_cache_set_max_files(0);
   return 0;
 }
 
