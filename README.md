@@ -30,5 +30,5 @@ Install libvips and pkg-config, then run:
 bundle install
 bundle exec rake compile
 bundle exec rake
-MINI_VIPS_PLATFORM=arm64-darwin bundle exec rake build
+bundle exec rake build
 ```

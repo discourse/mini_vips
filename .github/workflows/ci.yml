@@ -47,10 +47,10 @@ jobs:
       - name: Compile and test
         run: bundle exec rake compile test
 
-  linux:
+  build:
     name: ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
-    container: discourse/ruby:3.4-trixie-slim
+    container: ${{ matrix.container }}
 
     strategy:
       fail-fast: false
@@ -58,79 +58,52 @@ jobs:
         include:
           - platform: x86_64-linux-gnu
             runner: ubuntu-24.04
+            container: discourse/ruby:3.4-trixie-slim
             architecture: x86-64
           - platform: aarch64-linux-gnu
             runner: ubuntu-24.04-arm
+            container: discourse/ruby:3.4-trixie-slim
             architecture: ARM aarch64
+          - platform: arm64-darwin
+            runner: macos-15
+            architecture: arm64
+            macos_deployment_target: "13.0"
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - name: Install build dependencies
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
         run: apt-get update && apt-get install --yes build-essential file fonts-dejavu-core icc-profiles-free libvips-dev pkg-config
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install pkg-config vips
+
+      - name: Setup Ruby
+        if: runner.os == 'macOS'
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
+        with:
+          ruby-version: "3.4"
 
       - name: Install gems
         run: bundle install
 
       - name: Build and test platform gem
         env:
-          MINI_VIPS_PLATFORM: ${{ matrix.platform }}
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos_deployment_target }}
         run: |
           bundle exec rake build
           bundle exec rake test
 
-      - name: Check native artifact
+      - name: Check Linux artifact
+        if: runner.os == 'Linux'
         run: |
           file libexec/mini_vips | grep -F "${{ matrix.architecture }}"
           ldd libexec/mini_vips | grep -F libvips
 
-      - name: Test installed gem
-        run: |
-          install_dir="$(mktemp -d)"
-          gem install --install-dir "$install_dir" --local pkg/*.gem --no-document
-          minitest_lib="$(bundle show minitest)/lib"
-          GEM_HOME="$install_dir" GEM_PATH="$install_dir" ruby -I"$minitest_lib" test/mini_vips_test.rb
-
-      - name: Upload platform gem
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: mini_vips-${{ matrix.platform }}
-          path: pkg/*.gem
-          if-no-files-found: error
-
-  darwin:
-    name: ${{ matrix.platform }}
-    runs-on: ${{ matrix.runner }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: arm64-darwin
-            runner: macos-15
-            architecture: arm64
-
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-
-      - name: Install libvips
-        run: brew install pkg-config vips
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
-        with:
-          ruby-version: "3.4"
-          bundler-cache: true
-
-      - name: Build and test platform gem
-        env:
-          MACOSX_DEPLOYMENT_TARGET: "13.0"
-          MINI_VIPS_PLATFORM: ${{ matrix.platform }}
-        run: |
-          bundle exec rake build
-          bundle exec rake test
-
-      - name: Check native artifact
+      - name: Check macOS artifact
+        if: runner.os == 'macOS'
         run: |
           file libexec/mini_vips | grep -F "${{ matrix.architecture }}"
           otool -L libexec/mini_vips | grep -F libvips
@@ -152,7 +125,7 @@ jobs:
 
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [lint, test, linux, darwin]
+    needs: [lint, test, build]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
