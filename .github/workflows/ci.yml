@@ -50,6 +50,7 @@ jobs:
   linux:
     name: ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
+    container: discourse/ruby:3.4-trixie-slim
 
     strategy:
       fail-fast: false
@@ -57,42 +58,38 @@ jobs:
         include:
           - platform: x86_64-linux-gnu
             runner: ubuntu-24.04
-            image: discourse/ruby:3.4-trixie-slim
             architecture: x86-64
           - platform: aarch64-linux-gnu
             runner: ubuntu-24.04-arm
-            image: discourse/ruby:3.4-trixie-slim
             architecture: ARM aarch64
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - name: Start build container
-        id: container
-        run: |
-          container_id="$(docker run --rm --detach --volume "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" --workdir "$GITHUB_WORKSPACE" "${{ matrix.image }}" sleep 1d)"
-          echo "container_id=$container_id" >> "$GITHUB_OUTPUT"
-          docker exec "$container_id" uname -a
-
       - name: Install build dependencies
-        run: docker exec "${{ steps.container.outputs.container_id }}" sh -c 'apt-get update && apt-get install --yes build-essential file fonts-dejavu-core icc-profiles-free libvips-dev pkg-config'
+        run: apt-get update && apt-get install --yes build-essential file fonts-dejavu-core icc-profiles-free libvips-dev pkg-config
 
       - name: Install gems
-        run: docker exec "${{ steps.container.outputs.container_id }}" bundle install
+        run: bundle install
 
       - name: Build and test platform gem
+        env:
+          MINI_VIPS_PLATFORM: ${{ matrix.platform }}
         run: |
-          docker exec --env MINI_VIPS_PLATFORM="${{ matrix.platform }}" "${{ steps.container.outputs.container_id }}" bundle exec rake build
-          docker exec "${{ steps.container.outputs.container_id }}" bundle exec rake test
+          bundle exec rake build
+          bundle exec rake test
 
       - name: Check native artifact
         run: |
-          docker exec "${{ steps.container.outputs.container_id }}" file libexec/mini_vips | grep -F "${{ matrix.architecture }}"
-          docker exec "${{ steps.container.outputs.container_id }}" sh -c 'ldd libexec/mini_vips | grep -F libvips'
+          file libexec/mini_vips | grep -F "${{ matrix.architecture }}"
+          ldd libexec/mini_vips | grep -F libvips
 
       - name: Test installed gem
         run: |
-          docker exec "${{ steps.container.outputs.container_id }}" sh -c 'install_dir="$(mktemp -d)"; gem install --install-dir "$install_dir" --local pkg/*.gem --no-document; minitest_lib="$(bundle show minitest)/lib"; GEM_HOME="$install_dir" GEM_PATH="$install_dir" ruby -I"$minitest_lib" test/mini_vips_test.rb'
+          install_dir="$(mktemp -d)"
+          gem install --install-dir "$install_dir" --local pkg/*.gem --no-document
+          minitest_lib="$(bundle show minitest)/lib"
+          GEM_HOME="$install_dir" GEM_PATH="$install_dir" ruby -I"$minitest_lib" test/mini_vips_test.rb
 
       - name: Upload platform gem
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -100,10 +97,6 @@ jobs:
           name: mini_vips-${{ matrix.platform }}
           path: pkg/*.gem
           if-no-files-found: error
-
-      - name: Stop build container
-        if: always() && steps.container.outputs.container_id != ''
-        run: docker stop "${{ steps.container.outputs.container_id }}"
 
   darwin:
     name: ${{ matrix.platform }}
@@ -116,9 +109,6 @@ jobs:
           - platform: arm64-darwin
             runner: macos-15
             architecture: arm64
-          - platform: x86_64-darwin
-            runner: macos-15-intel
-            architecture: x86_64
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
