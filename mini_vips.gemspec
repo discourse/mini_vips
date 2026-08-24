@@ -31,9 +31,9 @@ Gem::Specification.new do |specification|
     LICENSE
     README.md
     lib/mini_vips.rb
+    lib/mini_vips/fonts/NotoSans-OFL.txt
+    lib/mini_vips/fonts/NotoSans-Regular.ttf
     lib/mini_vips/version.rb
-    libexec/NotoSans-OFL.txt
-    libexec/NotoSans-Regular.ttf
     libexec/mini_vips
   ]
   specification.require_paths = ["lib"]

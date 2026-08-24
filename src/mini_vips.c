@@ -181,7 +181,8 @@ static char *bundled_font_path(const char *program) {
   char *program_directory =
       g_path_get_dirname(resolved_program ? resolved_program : program);
   char *font_path =
-      g_build_filename(program_directory, "NotoSans-Regular.ttf", NULL);
+      g_build_filename(program_directory, "..", "lib", "mini_vips", "fonts",
+                       "NotoSans-Regular.ttf", NULL);
   g_free(resolved_program);
   g_free(program_directory);
   return font_path;
