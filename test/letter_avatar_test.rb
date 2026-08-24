@@ -3,6 +3,24 @@
 require_relative "test_helper"
 
 class LetterAvatarTest < Minitest::Test
+  def test_matches_debian_letter_avatar_fixtures
+    skip unless ENV["MINI_VIPS_TEST_DEBIAN_FIXTURES"] == "true"
+
+    Dir.mktmpdir do |directory|
+      ("A".."Z").each do |letter|
+        output_path = File.join(directory, "#{letter}.png")
+
+        generate_avatar(letter:, output_path:, background_color: "123456")
+
+        assert FileUtils.compare_file(
+                 fixture_path("letter_avatars/debian/#{letter}.png"),
+                 output_path,
+               ),
+               "letter avatar differs for #{letter}"
+      end
+    end
+  end
+
   def test_generates_the_default_letter_avatar
     Dir.mktmpdir do |directory|
       output_path = File.join(directory, "avatar.png")
