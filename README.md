@@ -24,19 +24,19 @@ mini_vips only resolves its executable. It does not run commands or configure a 
 
 ## Development
 
-Install libvips and pkg-config, then install the Ruby dependencies:
+Install libvips and pkg-config first. Then set up the repository once by installing its Ruby development dependencies:
 
 ```sh
 bundle install
 ```
 
-Run the default task to compile the native helper, run the tests, and check Ruby formatting and style:
+Use the default task during development. It compiles the native helper, runs the tests, and checks Ruby formatting and style:
 
 ```sh
 bundle exec rake
 ```
 
-To package the helper as a gem for the current platform:
+Maintainers can build the platform-specific gem that CI publishes with:
 
 ```sh
 bundle exec rake build
