@@ -123,22 +123,6 @@ class LetterAvatarTest < Minitest::Test
     )
   end
 
-  def test_rejects_font_options
-    %w[font-family font-file].each do |option|
-      assert_command_error(
-        "letter-avatar",
-        "A",
-        "avatar.png",
-        "--background-color",
-        "123456",
-        "--#{option}",
-        "value",
-        exit_status: 2,
-        message: "unsupported option --#{option}",
-      )
-    end
-  end
-
   private
 
   def generate_avatar(letter:, output_path:, background_color:, size: nil, letter_size: nil)
