@@ -35,9 +35,3 @@ Use the default task during development. It compiles the native helper, runs the
 ```sh
 bundle exec rake
 ```
-
-Maintainers can build the platform-specific gem that CI publishes with:
-
-```sh
-bundle exec rake build
-```
