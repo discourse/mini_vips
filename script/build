@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+if ! pkg-config --atleast-version=8.13 vips; then
+  echo "mini_vips requires libvips >= 8.13" >&2
+  exit 1
+fi
+
+mkdir -p libexec
+compiler="${CC:-cc}"
+"$compiler" ${CPPFLAGS:-} ${CFLAGS:--O2} -std=c11 -Wall -Wextra -Werror $(pkg-config --cflags vips) src/mini_vips.c -o libexec/mini_vips ${LDFLAGS:-} $(pkg-config --libs vips) -lm

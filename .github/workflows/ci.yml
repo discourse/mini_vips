@@ -1,0 +1,222 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      - name: Ruby lint
+        run: bundle exec rubocop
+
+      - name: Syntax Tree
+        if: ${{ !cancelled() }}
+        run: bundle exec stree check Gemfile Rakefile mini_vips.gemspec $(git ls-files '*.rb')
+
+  test:
+    name: Ruby ${{ matrix.ruby }}
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.2", "3.3", "3.4"]
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Install libvips
+        run: sudo apt-get update && sudo apt-get install --yes libvips-dev pkg-config
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      - name: Compile and test
+        run: bundle exec rake compile test
+
+  linux:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x86_64-linux-gnu
+            runner: ubuntu-24.04
+            image: ruby:3.4-bookworm
+            libc: gnu
+            architecture: x86-64
+            font: /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+            profile: /usr/share/color/icc/sRGB.icc
+          - platform: aarch64-linux-gnu
+            runner: ubuntu-24.04-arm
+            image: ruby:3.4-bookworm
+            libc: gnu
+            architecture: ARM aarch64
+            font: /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+            profile: /usr/share/color/icc/sRGB.icc
+          - platform: x86_64-linux-musl
+            runner: ubuntu-24.04
+            image: ruby:3.4-alpine3.21
+            libc: musl
+            architecture: x86-64
+            font: /usr/share/fonts/dejavu/DejaVuSans.ttf
+            profile: /usr/share/color/icc/colord/sRGB.icc
+          - platform: aarch64-linux-musl
+            runner: ubuntu-24.04-arm
+            image: ruby:3.4-alpine3.21
+            libc: musl
+            architecture: ARM aarch64
+            font: /usr/share/fonts/dejavu/DejaVuSans.ttf
+            profile: /usr/share/color/icc/colord/sRGB.icc
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Start build container
+        id: container
+        run: |
+          container_id="$(docker run --rm --detach --volume "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" --workdir "$GITHUB_WORKSPACE" "${{ matrix.image }}" sleep 1d)"
+          echo "container_id=$container_id" >> "$GITHUB_OUTPUT"
+          docker exec "$container_id" uname -a
+
+      - name: Install GNU build dependencies
+        if: matrix.libc == 'gnu'
+        run: docker exec "${{ steps.container.outputs.container_id }}" sh -c 'apt-get update && apt-get install --yes build-essential file fonts-dejavu-core icc-profiles-free libvips-dev pkg-config'
+
+      - name: Install musl build dependencies
+        if: matrix.libc == 'musl'
+        run: docker exec "${{ steps.container.outputs.container_id }}" apk add --no-cache build-base colord file font-dejavu pkgconf vips-dev
+
+      - name: Install gems
+        run: docker exec "${{ steps.container.outputs.container_id }}" bundle install
+
+      - name: Build and test platform gem
+        run: |
+          docker exec --env MINI_VIPS_PLATFORM="${{ matrix.platform }}" "${{ steps.container.outputs.container_id }}" bundle exec rake build
+          docker exec "${{ steps.container.outputs.container_id }}" bundle exec rake test
+
+      - name: Check native artifact
+        run: |
+          docker exec "${{ steps.container.outputs.container_id }}" file libexec/mini_vips | grep -F "${{ matrix.architecture }}"
+          docker exec "${{ steps.container.outputs.container_id }}" sh -c 'ldd libexec/mini_vips | grep -F libvips'
+
+      - name: Test installed gem
+        run: |
+          docker exec --env MINI_VIPS_TEST_FONT="${{ matrix.font }}" --env MINI_VIPS_TEST_PROFILE="${{ matrix.profile }}" "${{ steps.container.outputs.container_id }}" sh -c 'install_dir="$(mktemp -d)"; gem install --install-dir "$install_dir" --local pkg/*.gem --no-document; GEM_HOME="$install_dir" GEM_PATH="$install_dir" ruby test/installed_gem_smoke.rb'
+
+      - name: Upload platform gem
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mini_vips-${{ matrix.platform }}
+          path: pkg/*.gem
+          if-no-files-found: error
+
+      - name: Stop build container
+        if: always() && steps.container.outputs.container_id != ''
+        run: docker stop "${{ steps.container.outputs.container_id }}"
+
+  darwin:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: arm64-darwin
+            runner: macos-15
+            architecture: arm64
+            font: /System/Library/Fonts/Supplemental/Arial.ttf
+            profile: /System/Library/ColorSync/Profiles/sRGB Profile.icc
+          - platform: x86_64-darwin
+            runner: macos-15-intel
+            architecture: x86_64
+            font: /System/Library/Fonts/Supplemental/Arial.ttf
+            profile: /System/Library/ColorSync/Profiles/sRGB Profile.icc
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Install libvips
+        run: brew install pkg-config vips
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      - name: Build and test platform gem
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "13.0"
+          MINI_VIPS_PLATFORM: ${{ matrix.platform }}
+        run: |
+          bundle exec rake build
+          bundle exec rake test
+
+      - name: Check native artifact
+        run: |
+          file libexec/mini_vips | grep -F "${{ matrix.architecture }}"
+          otool -L libexec/mini_vips | grep -F libvips
+          vtool -show-build libexec/mini_vips | grep -F 'minos 13.0'
+
+      - name: Test installed gem
+        env:
+          MINI_VIPS_TEST_FONT: ${{ matrix.font }}
+          MINI_VIPS_TEST_PROFILE: ${{ matrix.profile }}
+        run: |
+          install_dir="$(mktemp -d)"
+          gem install --install-dir "$install_dir" --local pkg/*.gem --no-document
+          GEM_HOME="$install_dir" GEM_PATH="$install_dir" ruby test/installed_gem_smoke.rb
+
+      - name: Upload platform gem
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mini_vips-${{ matrix.platform }}
+          path: pkg/*.gem
+          if-no-files-found: error
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [lint, test, linux, darwin]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Download platform gems
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          path: pkg
+          merge-multiple: true
+
+      - name: Release gems
+        uses: discourse/publish-rubygems-action@4bd305c65315cb691bad1e8de97a87aaf29a0a85
+        env:
+          RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+          RELEASE_COMMAND: bundle exec rake release:platforms
+          GIT_EMAIL: team@discourse.org
+          GIT_NAME: discoursebot
