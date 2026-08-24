@@ -44,6 +44,9 @@ end
 desc "Publish platform gems"
 task :release do
   Dir["pkg/*.gem"].sort.each { |gem_file| sh "gem", "push", gem_file }
+  tag = "v#{MiniVips::VERSION}"
+  sh "git", "tag", tag
+  sh "git", "push", "origin", tag
 end
 
 desc "Run Ruby tests and style checks"
