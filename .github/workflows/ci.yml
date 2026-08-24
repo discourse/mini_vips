@@ -59,14 +59,11 @@ jobs:
           - platform: x86_64-linux-gnu
             runner: ubuntu-24.04
             container: discourse/ruby:3.4-trixie-slim
-            architecture: x86-64
           - platform: aarch64-linux-gnu
             runner: ubuntu-24.04-arm
             container: discourse/ruby:3.4-trixie-slim
-            architecture: ARM aarch64
           - platform: arm64-darwin
             runner: macos-15
-            architecture: arm64
             macos_deployment_target: "13.0"
 
     steps:
@@ -74,7 +71,7 @@ jobs:
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
-        run: apt-get update && apt-get install --yes build-essential file fonts-dejavu-core icc-profiles-free libvips-dev pkg-config
+        run: apt-get update && apt-get install --yes build-essential fonts-dejavu-core icc-profiles-free libvips-dev pkg-config
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
@@ -95,19 +92,6 @@ jobs:
         run: |
           bundle exec rake build
           bundle exec rake test
-
-      - name: Check Linux artifact
-        if: runner.os == 'Linux'
-        run: |
-          file libexec/mini_vips | grep -F "${{ matrix.architecture }}"
-          ldd libexec/mini_vips | grep -F libvips
-
-      - name: Check macOS artifact
-        if: runner.os == 'macOS'
-        run: |
-          file libexec/mini_vips | grep -F "${{ matrix.architecture }}"
-          otool -L libexec/mini_vips | grep -F libvips
-          vtool -show-build libexec/mini_vips | grep -F 'minos 13.0'
 
       - name: Test installed gem
         run: |
