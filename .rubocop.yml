@@ -1,12 +1,2 @@
 inherit_gem:
   rubocop-discourse: default.yml
-inherit_mode:
-  merge:
-    - Exclude
-AllCops:
-  Exclude:
-    - 'client-app/**/*'
-Discourse/Plugins/NamespaceConstants:
-  Enabled: false
-Layout/SpaceAroundKeyword:
-  Enabled: false
