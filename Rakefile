@@ -12,7 +12,7 @@ require_relative "lib/mini_vips"
 platforms = %w[aarch64-linux-gnu arm64-darwin x86_64-darwin x86_64-linux-gnu].freeze
 
 Rake::TestTask.new do |task|
-  task.libs << "test"
+  task.libs << "lib" << "test"
   task.pattern = "test/**/*_test.rb"
 end
 

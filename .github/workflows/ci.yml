@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install libvips
-        run: sudo apt-get update && sudo apt-get install --yes libvips-dev pkg-config
+        run: sudo apt-get update && sudo apt-get install --yes fonts-dejavu-core icc-profiles-free libvips-dev pkg-config
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b
@@ -57,16 +57,12 @@ jobs:
         include:
           - platform: x86_64-linux-gnu
             runner: ubuntu-24.04
-            image: ruby:3.4-bookworm
+            image: discourse/ruby:3.4-trixie-slim
             architecture: x86-64
-            font: /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
-            profile: /usr/share/color/icc/sRGB.icc
           - platform: aarch64-linux-gnu
             runner: ubuntu-24.04-arm
-            image: ruby:3.4-bookworm
+            image: discourse/ruby:3.4-trixie-slim
             architecture: ARM aarch64
-            font: /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
-            profile: /usr/share/color/icc/sRGB.icc
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -96,7 +92,7 @@ jobs:
 
       - name: Test installed gem
         run: |
-          docker exec --env MINI_VIPS_TEST_FONT="${{ matrix.font }}" --env MINI_VIPS_TEST_PROFILE="${{ matrix.profile }}" "${{ steps.container.outputs.container_id }}" sh -c 'install_dir="$(mktemp -d)"; gem install --install-dir "$install_dir" --local pkg/*.gem --no-document; GEM_HOME="$install_dir" GEM_PATH="$install_dir" ruby test/installed_gem_smoke.rb'
+          docker exec "${{ steps.container.outputs.container_id }}" sh -c 'install_dir="$(mktemp -d)"; gem install --install-dir "$install_dir" --local pkg/*.gem --no-document; minitest_lib="$(bundle show minitest)/lib"; GEM_HOME="$install_dir" GEM_PATH="$install_dir" ruby -I"$minitest_lib" test/mini_vips_test.rb'
 
       - name: Upload platform gem
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -120,13 +116,9 @@ jobs:
           - platform: arm64-darwin
             runner: macos-15
             architecture: arm64
-            font: /System/Library/Fonts/Supplemental/Arial.ttf
-            profile: /System/Library/ColorSync/Profiles/sRGB Profile.icc
           - platform: x86_64-darwin
             runner: macos-15-intel
             architecture: x86_64
-            font: /System/Library/Fonts/Supplemental/Arial.ttf
-            profile: /System/Library/ColorSync/Profiles/sRGB Profile.icc
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -155,13 +147,11 @@ jobs:
           vtool -show-build libexec/mini_vips | grep -F 'minos 13.0'
 
       - name: Test installed gem
-        env:
-          MINI_VIPS_TEST_FONT: ${{ matrix.font }}
-          MINI_VIPS_TEST_PROFILE: ${{ matrix.profile }}
         run: |
           install_dir="$(mktemp -d)"
           gem install --install-dir "$install_dir" --local pkg/*.gem --no-document
-          GEM_HOME="$install_dir" GEM_PATH="$install_dir" ruby test/installed_gem_smoke.rb
+          minitest_lib="$(bundle show minitest)/lib"
+          GEM_HOME="$install_dir" GEM_PATH="$install_dir" ruby -I"$minitest_lib" test/mini_vips_test.rb
 
       - name: Upload platform gem
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
