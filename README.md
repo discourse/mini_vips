@@ -6,66 +6,118 @@ The platform gems link dynamically to libvips 8.13 or newer. Follow the [libvips
 
 ## CLI
 
-The packaged `libexec/mini_vips` executable accepts one command followed by its options. The examples use `mini_vips` as the name of that file; the gem does not add it to `PATH`.
+The packaged `libexec/mini_vips` executable follows the libvips CLI convention:
+
+```text
+mini_vips OPERATION REQUIRED-ARGUMENTS [--option-name option-value ...]
+```
+
+The examples use `mini_vips` as the name of the packaged file. The gem does not add it to `PATH`.
 
 ### `version`
 
-Print the linked libvips version:
+Print the linked libvips version.
 
 ```text
-mini_vips version
+$ mini_vips version
+8.17.2
 ```
 
 ### `letter-avatar`
 
-Generate a 360 by 360 letter avatar with centered white text on the selected background color:
+Generate a 360 by 360 letter-avatar PNG.
 
 ```text
-mini_vips letter-avatar --letter TEXT --background-color RRGGBB --font-family NAME [--font-file PATH] --output PATH
+$ mini_vips letter-avatar A avatar.png \
+    --background-color C67D28 \
+    --font-family "Noto Sans" \
+    --font-file /path/to/NotoSans-Regular.woff2
 ```
-
-- `--letter` sets the text shown in the avatar.
-- `--background-color` sets the background using a six-character RGB value.
-- `--font-family` selects the font family.
-- `--font-file` optionally loads the family from a font file when it is not installed.
-- `--output` sets the destination PNG path.
-
-### `resize-letter-avatar`
-
-Create a square letter avatar at the requested size:
 
 ```text
-mini_vips resize-letter-avatar --input PATH --output PATH --size 1..4096
+usage:
+   letter-avatar letter out --background-color color --font-family family [--font-file file]
+
+where:
+   letter             - Text displayed in the avatar
+   out                - Output PNG path
+
+options:
+   background-color   - Six-character RGB background color
+                        required
+   font-family        - Font family used for the letter
+                        required
+   font-file          - Font file to load when the family is not installed
+                        optional
 ```
 
-- `--input` sets the source letter-avatar PNG path.
-- `--output` sets the destination PNG path.
-- `--size` sets both output dimensions in pixels, from 1 through 4096.
+### `resize-png`
+
+Create a square PNG at the requested size.
+
+```text
+$ mini_vips resize-png avatar.png avatar-90.png --size 90
+```
+
+```text
+usage:
+   resize-png in out --size pixels
+
+where:
+   in                 - Input PNG path
+   out                - Output PNG path
+
+options:
+   size               - Output width and height in pixels
+                        required
+                        min: 1, max: 4096
+```
 
 ### `dominant-color`
 
-Print a representative color for a supported image as an uppercase six-character RGB value:
+Print a representative color as an uppercase six-character RGB value.
 
 ```text
-mini_vips dominant-color --input PATH
+$ mini_vips dominant-color image.png
+3A3730
 ```
 
-- `--input` sets the source image path.
+```text
+usage:
+   dominant-color in
+
+where:
+   in                 - Input image path
+```
 
 Supported inputs are JPEG, PNG, GIF, WebP, HEIF, and JPEG XL. Transparent pixels contribute black when calculating the color.
 
 ### `svg-to-png`
 
-Convert an SVG into an opaque PNG:
+Convert an SVG into an opaque PNG.
 
 ```text
-mini_vips svg-to-png --input PATH --output PATH
+$ mini_vips svg-to-png image.svg image.png
 ```
 
-- `--input` sets the source SVG path.
-- `--output` sets the destination PNG path.
+```text
+usage:
+   svg-to-png in out
 
-Commands with an `--output` option write the generated image there. The executable returns 0 on success, 1 when image processing fails, and 2 when the command is unsupported or a required value is missing or invalid. Errors are written to standard error.
+where:
+   in                 - Input SVG path
+   out                - Output PNG path
+```
+
+## Exit status
+
+The executable returns:
+
+- `0` when the operation succeeds.
+- `1` when image processing fails.
+- `2` when the command or its arguments are invalid.
+
+Errors are written to standard error.
 
 ## Development
 

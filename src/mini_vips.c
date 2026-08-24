@@ -67,9 +67,19 @@ static void color_option(options_t *options, const char *key, int channels[3]) {
   }
 }
 
-static void parse_options(int argc, char **argv, options_t *options) {
+static const char *required_argument(int argc, char **argv, int index,
+                                     const char *name) {
+  if (index >= argc || strncmp(argv[index], "--", 2) == 0) {
+    fprintf(stderr, "missing required argument %s\n", name);
+    exit(2);
+  }
+  return argv[index];
+}
+
+static void parse_options(int argc, char **argv, int start,
+                          options_t *options) {
   options->count = 0;
-  for (int index = 2; index < argc; index++) {
+  for (int index = start; index < argc; index++) {
     if (strncmp(argv[index], "--", 2) != 0) {
       fprintf(stderr, "unexpected argument: %s\n", argv[index]);
       exit(2);
@@ -82,9 +92,34 @@ static void parse_options(int argc, char **argv, options_t *options) {
       fprintf(stderr, "too many options\n");
       exit(2);
     }
-    options->items[options->count].key = argv[index] + 2;
+    const char *key = argv[index] + 2;
+    for (int option_index = 0; option_index < options->count; option_index++) {
+      if (strcmp(options->items[option_index].key, key) == 0) {
+        fprintf(stderr, "duplicate option --%s\n", key);
+        exit(2);
+      }
+    }
+    options->items[options->count].key = key;
     options->items[options->count].value = argv[++index];
     options->count++;
+  }
+}
+
+static void validate_options(options_t *options, const char **allowed,
+                             int allowed_count) {
+  for (int index = 0; index < options->count; index++) {
+    gboolean valid = FALSE;
+    for (int allowed_index = 0; allowed_index < allowed_count;
+         allowed_index++) {
+      if (strcmp(options->items[index].key, allowed[allowed_index]) == 0) {
+        valid = TRUE;
+        break;
+      }
+    }
+    if (!valid) {
+      fprintf(stderr, "unsupported option --%s\n", options->items[index].key);
+      exit(2);
+    }
   }
 }
 
@@ -141,9 +176,8 @@ static int command_version(void) {
   return 0;
 }
 
-static int command_letter_avatar(options_t *options) {
-  const char *output = required_option(options, "output");
-  const char *letter = required_option(options, "letter");
+static int command_letter_avatar(const char *letter, const char *output,
+                                 options_t *options) {
   const char *font_family = required_option(options, "font-family");
   const char *font_file = option(options, "font-file");
   int background_channels[3];
@@ -205,13 +239,12 @@ static int command_letter_avatar(options_t *options) {
   return result == 0 ? 0 : 1;
 }
 
-static int command_resize_letter_avatar(options_t *options) {
-  const char *input = required_option(options, "input");
-  const char *output = required_option(options, "output");
+static int command_resize_png(const char *input, const char *output,
+                              options_t *options) {
   int size = integer_option(options, "size", 0);
   if (size < 1 || size > 4096) {
-    report_error("size must be 1..4096");
-    return 1;
+    report_error("--size must be 1..4096");
+    return 2;
   }
 
   allow_loader_family("VipsForeignLoadPng");
@@ -236,8 +269,7 @@ static int command_resize_letter_avatar(options_t *options) {
   return result == 0 ? 0 : 1;
 }
 
-static int command_dominant_color(options_t *options) {
-  const char *input = required_option(options, "input");
+static int command_dominant_color(const char *input) {
   VipsImage *thumbnail = NULL;
   double *components = NULL;
   int result = 1;
@@ -293,9 +325,7 @@ cleanup:
   return result;
 }
 
-static int command_svg_to_png(options_t *options) {
-  const char *input = required_option(options, "input");
-  const char *output = required_option(options, "output");
+static int command_svg_to_png(const char *input, const char *output) {
   allow_loader_family("VipsForeignLoadSvg");
 
   VipsImage *svg = NULL;
@@ -321,28 +351,45 @@ int main(int argc, char **argv) {
     return 2;
   }
 
-  options_t options;
-  parse_options(argc, argv, &options);
+  const char *command = argv[1];
   if (initialize_vips(argv[0]) != 0) {
     report_vips_error();
     return 1;
   }
 
-  const char *command = argv[1];
-  int result;
+  options_t options;
+  int result = 2;
   if (strcmp(command, "version") == 0) {
+    parse_options(argc, argv, 2, &options);
+    validate_options(&options, NULL, 0);
     result = command_version();
   } else if (strcmp(command, "letter-avatar") == 0) {
-    result = command_letter_avatar(&options);
-  } else if (strcmp(command, "resize-letter-avatar") == 0) {
-    result = command_resize_letter_avatar(&options);
+    const char *letter = required_argument(argc, argv, 2, "letter");
+    const char *output = required_argument(argc, argv, 3, "out");
+    parse_options(argc, argv, 4, &options);
+    const char *allowed[] = {"background-color", "font-family", "font-file"};
+    validate_options(&options, allowed, 3);
+    result = command_letter_avatar(letter, output, &options);
+  } else if (strcmp(command, "resize-png") == 0) {
+    const char *input = required_argument(argc, argv, 2, "in");
+    const char *output = required_argument(argc, argv, 3, "out");
+    parse_options(argc, argv, 4, &options);
+    const char *allowed[] = {"size"};
+    validate_options(&options, allowed, 1);
+    result = command_resize_png(input, output, &options);
   } else if (strcmp(command, "dominant-color") == 0) {
-    result = command_dominant_color(&options);
+    const char *input = required_argument(argc, argv, 2, "in");
+    parse_options(argc, argv, 3, &options);
+    validate_options(&options, NULL, 0);
+    result = command_dominant_color(input);
   } else if (strcmp(command, "svg-to-png") == 0) {
-    result = command_svg_to_png(&options);
+    const char *input = required_argument(argc, argv, 2, "in");
+    const char *output = required_argument(argc, argv, 3, "out");
+    parse_options(argc, argv, 4, &options);
+    validate_options(&options, NULL, 0);
+    result = command_svg_to_png(input, output);
   } else {
     report_error("unsupported helper command");
-    result = 2;
   }
 
   vips_shutdown();

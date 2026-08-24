@@ -49,6 +49,40 @@ class MiniVipsTest < Minitest::Test
     assert_match(/\A8\.\d+\.\d+\n\z/, run_helper("version"))
   end
 
+  def test_invalid_commands_return_usage_error
+    cases = [
+      [%w[dominant-color], "missing required argument in"],
+      [%w[version unexpected], "unexpected argument: unexpected"],
+      [%w[version --option one --option two], "duplicate option --option"],
+      [
+        ["letter-avatar", "A", "avatar.png", "--font-family", "Noto Sans"],
+        "missing required option --background-color",
+      ],
+      [
+        [
+          "letter-avatar",
+          "A",
+          "avatar.png",
+          "--font-family",
+          "Noto Sans",
+          "--background-color",
+          "invalid",
+        ],
+        "--background-color must be a six-character RGB value",
+      ],
+      [%w[resize-png input.png output.png --size invalid], "invalid integer for --size"],
+      [%w[resize-png input.png output.png --size 0], "--size must be 1..4096"],
+      [%w[version --unsupported value], "unsupported option --unsupported"],
+    ]
+
+    cases.each do |arguments, expected_error|
+      _output, error, status = Open3.capture3(MiniVips.executable, *arguments)
+
+      assert_equal 2, status.exitstatus, arguments.join(" ")
+      assert_includes error, expected_error, arguments.join(" ")
+    end
+  end
+
   def test_letter_avatar_command
     Dir.mktmpdir do |directory|
       output_path = File.join(directory, "avatar.png")
@@ -69,21 +103,13 @@ class MiniVipsTest < Minitest::Test
     end
   end
 
-  def test_resize_letter_avatar_command
+  def test_resize_png_command
     Dir.mktmpdir do |directory|
       input_path = File.join(directory, "avatar.png")
       output_path = File.join(directory, "avatar-64.png")
       generate_avatar(input_path)
 
-      run_helper(
-        "resize-letter-avatar",
-        "--input",
-        input_path,
-        "--output",
-        output_path,
-        "--size",
-        "64",
-      )
+      run_helper("resize-png", input_path, output_path, "--size", "64")
 
       assert File.size?(output_path)
     end
@@ -98,9 +124,9 @@ class MiniVipsTest < Minitest::Test
       )
 
       output_path = File.join(directory, "input.png")
-      run_helper("svg-to-png", "--input", input_path, "--output", output_path)
+      run_helper("svg-to-png", input_path, output_path)
 
-      assert_equal "123456\n", run_helper("dominant-color", "--input", output_path)
+      assert_equal "123456\n", run_helper("dominant-color", output_path)
     end
   end
 
@@ -113,7 +139,7 @@ class MiniVipsTest < Minitest::Test
         '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect width="2" height="2" fill="#123456"/></svg>',
       )
 
-      run_helper("svg-to-png", "--input", input_path, "--output", output_path)
+      run_helper("svg-to-png", input_path, output_path)
 
       assert File.size?(output_path)
     end
@@ -124,8 +150,7 @@ class MiniVipsTest < Minitest::Test
       input_path = File.join(directory, "input.ppm")
       File.write(input_path, "P3\n1 1\n255\n18 52 86\n")
 
-      _output, error, status =
-        Open3.capture3(MiniVips.executable, "dominant-color", "--input", input_path)
+      _output, error, status = Open3.capture3(MiniVips.executable, "dominant-color", input_path)
 
       refute status.success?
       assert_match(/unsupported input format|operation is blocked/, error)
@@ -137,10 +162,8 @@ class MiniVipsTest < Minitest::Test
   def generate_avatar(output_path, include_font_file: true)
     arguments = [
       "letter-avatar",
-      "--output",
-      output_path,
-      "--letter",
       "A",
+      output_path,
       "--font-family",
       font_family,
       "--background-color",
