@@ -2,7 +2,7 @@
 
 mini_vips packages the native libvips image operations used by [discourse/discourse](https://github.com/discourse/discourse).
 
-The platform gems link dynamically to libvips 8.13 or newer. Follow the [libvips building and installation instructions](https://github.com/libvips/libvips/wiki#building-and-installing) before using the helper. Precompiled gems are available for glibc Linux and macOS on x86-64 and ARM64.
+mini_vips requires libvips 8.13 or newer to be installed. Follow the [libvips building and installation instructions](https://github.com/libvips/libvips/wiki#building-and-installing) before using it. Precompiled versions of mini_vips are available for glibc Linux and macOS on x86-64 and ARM64.
 
 ## CLI
 
