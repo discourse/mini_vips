@@ -7,12 +7,12 @@ class LetterAvatarTest < Minitest::Test
     Dir.mktmpdir do |directory|
       output_path = File.join(directory, "avatar.png")
 
-      generate_avatar(letter: "A", output_path:, background_color: "123456")
+      generate_avatar(letter: "A", output_path:)
 
       image = assert_png(output_path, width: 360, height: 360)
-      assert_letter_avatar(image, background_color: "123456")
+      assert_letter_avatar(image, background_color: "000000")
 
-      background = color("123456")
+      background = color("000000")
       glyph_pixels =
         image.height.times.flat_map do |y|
           image.width.times.filter_map { |x| [x, y] if image[x, y] != background }
@@ -86,16 +86,6 @@ class LetterAvatarTest < Minitest::Test
     end
   end
 
-  def test_requires_a_background_color
-    assert_command_error(
-      "letter-avatar",
-      "A",
-      "avatar.png",
-      exit_status: 2,
-      message: "missing required option --background-color",
-    )
-  end
-
   def test_rejects_an_invalid_background_color
     assert_command_error(
       "letter-avatar",
@@ -138,8 +128,9 @@ class LetterAvatarTest < Minitest::Test
 
   private
 
-  def generate_avatar(letter:, output_path:, background_color:, size: nil, letter_size: nil)
-    arguments = ["letter-avatar", letter, output_path, "--background-color", background_color]
+  def generate_avatar(letter:, output_path:, background_color: nil, size: nil, letter_size: nil)
+    arguments = ["letter-avatar", letter, output_path]
+    arguments.push("--background-color", background_color) if background_color
     arguments.push("--size", size.to_s) if size
     arguments.push("--letter-size", letter_size.to_s) if letter_size
     run_helper(*arguments)

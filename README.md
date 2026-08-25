@@ -1,6 +1,6 @@
 # mini_vips
 
-mini_vips packages the native libvips image operations used by [discourse/discourse](https://github.com/discourse/discourse). It supports letter-avatar generation and resizing, dominant-color extraction, and SVG-to-PNG conversion. It does not expose arbitrary libvips operations.
+mini_vips packages the native libvips image operations used by [discourse/discourse](https://github.com/discourse/discourse).
 
 The platform gems link dynamically to libvips 8.13 or newer. Follow the [libvips building and installation instructions](https://github.com/libvips/libvips/wiki#building-and-installing) before using the helper. Precompiled gems are available for glibc Linux and macOS on x86-64 and ARM64.
 
@@ -33,7 +33,7 @@ $ mini_vips letter-avatar A avatar.png --background-color C67D28
 
 ```text
 usage:
-   letter-avatar letter out --background-color color [--size pixels] [--letter-size pixels]
+   letter-avatar letter out [--size pixels] [--letter-size pixels] [--background-color color]
 
 where:
    letter             - Text displayed in the avatar
@@ -41,7 +41,7 @@ where:
 
 options:
    background-color   - Six-character RGB background color
-                        required
+                        optional, default: 000000
    size               - Output width and height in pixels
                         optional, default: 360
                         min: 1, max: 4096
@@ -52,27 +52,48 @@ options:
 
 Letter avatars use the bundled Noto Sans font. The font is distributed under the SIL Open Font License 1.1 included in the platform gem.
 
-### `resize-png`
+### `resize`
 
-Create a square PNG at the requested size.
+Resize a supported image and select the output format from the output filename.
 
 ```text
-$ mini_vips resize-png avatar.png avatar-90.png --size 90
+$ mini_vips resize avatar.png avatar-90.png --width 90 --height 90 --fit cover
 ```
 
 ```text
 usage:
-   resize-png in out --size pixels
+   resize in out (--width pixels --height pixels | --scale ratio | --max-pixels pixels)
+                 [--fit contain|cover] [--position center|top]
+                 [--without-enlargement] [--quality 1..100]
+                 [--colors count] [--strip-metadata]
 
 where:
-   in                 - Input PNG path
-   out                - Output PNG path
+   in                    - Input image path
+   out                   - Output image path
 
 options:
-   size               - Output width and height in pixels
-                        required
-                        min: 1, max: 4096
+   width                 - Bounding-box or cover width in pixels
+   height                - Bounding-box or cover height in pixels
+                          use together, min: 1, max: 65535
+   scale                 - Proportional scale ratio
+                          min: greater than 0, max: 100
+   max-pixels            - Maximum output pixel area
+                          min: 1; never enlarges the image
+   fit                   - Fit within the dimensions or cover them exactly
+                          optional, default: contain
+   position              - Crop from the center or top when fit is cover
+                          optional, default: center
+   without-enlargement   - Keep an image within the requested dimensions at
+                          its original size when it is already smaller
+   quality               - Output encoder quality
+                          optional, min: 1, max: 100; unavailable for GIF
+   colors                - Maximum palette size for PNG or GIF output
+                          optional, min: 2, max: 256; rounded down to the
+                          nearest palette bit depth supported by the format
+   strip-metadata        - Remove image metadata from the output
 ```
+
+Supported inputs are JPEG, PNG, GIF, WebP, HEIF, JPEG XL, and SVG. Supported outputs are JPEG, PNG, GIF, WebP, HEIF/AVIF, and JPEG XL. Resize uses the first frame of animated inputs, applies image orientation, preserves transparency when the output format supports it, and sharpens only images produced with `--fit cover`.
 
 ### `dominant-color`
 
@@ -93,22 +114,24 @@ where:
 
 Supported inputs are JPEG, PNG, GIF, WebP, HEIF, and JPEG XL. Transparent pixels contribute black when calculating the color.
 
-### `svg-to-png`
+### `convert`
 
 Convert an SVG into an opaque PNG.
 
 ```text
-$ mini_vips svg-to-png image.svg image.png
+$ mini_vips convert image.svg image.png
 ```
 
 ```text
 usage:
-   svg-to-png in out
+   convert in out
 
 where:
    in                 - Input SVG path
    out                - Output PNG path
 ```
+
+The initial release supports SVG input and PNG output only.
 
 ## Exit status
 

@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- The `version`, `letter-avatar`, `resize-png`, `dominant-color`, and `svg-to-png` CLI operations.
+- The `version`, `letter-avatar`, `resize`, `dominant-color`, and `convert` CLI operations.
 - A bundled Noto Sans font for consistent letter-avatar rendering.
 - Precompiled glibc Linux and macOS gems for x86-64 and ARM64.
 

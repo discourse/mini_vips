@@ -51,4 +51,13 @@ class DominantColorTest < Minitest::Test
       message: "unsupported input format",
     )
   end
+
+  def test_rejects_filename_options
+    assert_command_error(
+      "dominant-color",
+      "#{fixture_path("tiny_animated.gif")}[n=-1]",
+      exit_status: 2,
+      message: "input filename options are not supported",
+    )
+  end
 end
