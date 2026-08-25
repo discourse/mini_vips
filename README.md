@@ -4,7 +4,31 @@ mini_vips packages the native libvips image operations used by [discourse/discou
 
 mini_vips requires libvips 8.13 or newer to be installed. Follow the [libvips building and installation instructions](https://github.com/libvips/libvips/wiki#building-and-installing) before using it. Precompiled versions of mini_vips are available for glibc Linux and macOS on x86-64 and ARM64.
 
+## Usage
+
+Add mini_vips to the application's `Gemfile`, then run `bundle install`:
+
+```ruby
+gem "mini_vips"
+```
+
+Use `MiniVips.executable` to resolve the executable packaged for the current platform, then pass that path and one of the commands below to the application's process runner:
+
+```ruby
+require "mini_vips"
+
+command = [MiniVips.executable, "dominant-color", input_path]
+```
+
 ## CLI
+
+The executable returns:
+
+- `0` when the operation succeeds.
+- `1` when image processing fails.
+- `2` when the command or its arguments are invalid.
+
+Errors are written to standard error.
 
 ### `version`
 
@@ -123,17 +147,7 @@ where:
    out                - Output PNG path
 ```
 
-The initial release supports SVG input and PNG output only.
-
-## Exit status
-
-The executable returns:
-
-- `0` when the operation succeeds.
-- `1` when image processing fails.
-- `2` when the command or its arguments are invalid.
-
-Errors are written to standard error.
+Currently, `convert` only supports SVG input and PNG output.
 
 ## Development
 
