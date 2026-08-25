@@ -42,7 +42,7 @@ options:
                         min: 1, max: 4096
 ```
 
-Letter avatars use the bundled Noto Sans font. The font is distributed under the SIL Open Font License 1.1 included in the platform gem.
+Letter avatars use the bundled Noto Sans font.
 
 ### `resize`
 
