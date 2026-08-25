@@ -287,8 +287,6 @@ static int command_resize_png(const char *input, const char *output,
 }
 
 static int command_dominant_color(const char *input) {
-  VipsImage *source = NULL;
-  VipsImage *opaque = NULL;
   VipsImage *thumbnail = NULL;
   double *components = NULL;
   int result = 1;
@@ -300,22 +298,9 @@ static int command_dominant_color(const char *input) {
     goto cleanup;
   }
 
-  source = vips_image_new_from_file(input, "access", VIPS_ACCESS_SEQUENTIAL,
-                                    "fail_on", VIPS_FAIL_ON_NONE, NULL);
-  if (!source) {
-    report_vips_error();
-    goto cleanup;
-  }
-  if (vips_image_hasalpha(source)) {
-    if (vips_flatten(source, &opaque, NULL) != 0) {
-      report_vips_error();
-      goto cleanup;
-    }
-  } else {
-    opaque = g_object_ref(source);
-  }
-  if (vips_thumbnail_image(opaque, &thumbnail, 1, "height", 1, "size",
-                           VIPS_SIZE_FORCE, NULL) != 0) {
+  if (vips_thumbnail(input, &thumbnail, 1, "height", 1, "size",
+                     VIPS_SIZE_FORCE, "fail_on", VIPS_FAIL_ON_NONE, NULL) !=
+      0) {
     report_vips_error();
     goto cleanup;
   }
@@ -341,11 +326,16 @@ static int command_dominant_color(const char *input) {
     goto cleanup;
   }
 
-  unsigned char red = quantize_sample(components[0], sample_max);
+  double alpha = vips_image_hasalpha(thumbnail)
+                     ? components[bands - 1] / sample_max
+                     : 1.0;
+  unsigned char red = quantize_sample(components[0] * alpha, sample_max);
   unsigned char green =
-      quantize_sample(bands < 3 ? components[0] : components[1], sample_max);
+      quantize_sample((bands < 3 ? components[0] : components[1]) * alpha,
+                      sample_max);
   unsigned char blue =
-      quantize_sample(bands < 3 ? components[0] : components[2], sample_max);
+      quantize_sample((bands < 3 ? components[0] : components[2]) * alpha,
+                      sample_max);
   char color[7];
   snprintf(color, sizeof(color), "%02X%02X%02X", red, green, blue);
   puts(color);
@@ -353,8 +343,6 @@ static int command_dominant_color(const char *input) {
 
 cleanup:
   g_free(components);
-  VIPS_UNREF(source);
-  VIPS_UNREF(opaque);
   VIPS_UNREF(thumbnail);
   return result;
 }

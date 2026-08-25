@@ -22,9 +22,9 @@ class DominantColorTest < Minitest::Test
     assert_equal "FFFFFF\n", run_helper("dominant-color", fixture_path("2000x2000.png"))
   end
 
-  def test_composites_transparency_over_black
+  def test_treats_transparency_as_black
     assert_equal "7F0000\n", run_helper("dominant-color", fixture_path("transparent.png"))
-    assert_equal "000080\n", run_helper("dominant-color", fixture_path("mixed_transparency.png"))
+    assert_equal "400040\n", run_helper("dominant-color", fixture_path("mixed_transparency.png"))
   end
 
   def test_rejects_an_unsupported_fixture
