@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      - name: Ruby lint
+        run: bundle exec rubocop
+
+      - name: Syntax Tree
+        if: ${{ !cancelled() }}
+        run: bundle exec stree check Gemfile Rakefile mini_vips.gemspec $(git ls-files '*.rb')
+
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x86_64-linux-gnu
+            runner: ubuntu-24.04
+            container: discourse/ruby:3.4-trixie-slim
+          - platform: aarch64-linux-gnu
+            runner: ubuntu-24.04-arm
+            container: discourse/ruby:3.4-trixie-slim
+          - platform: arm64-darwin
+            runner: macos-15
+          - platform: x86_64-darwin
+            runner: macos-15-intel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: apt-get update && apt-get install --yes build-essential libvips-dev pkg-config
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install pkg-config vips
+
+      - name: Setup Ruby
+        if: runner.os == 'macOS'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - name: Install gems
+        run: bundle install
+
+      - name: Build and test platform gem
+        run: bundle exec rake test:installed
+
+      - name: Upload platform gem
+        uses: actions/upload-artifact@v4
+        with:
+          name: mini_vips-${{ matrix.platform }}
+          path: pkg/*.gem
+          if-no-files-found: error
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [lint, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download platform gems
+        uses: actions/download-artifact@v4
+        with:
+          path: pkg
+          merge-multiple: true
+
+      - name: Release Gem
+        uses: discourse/publish-rubygems-action@v3
+        env:
+          RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+          GIT_EMAIL: team@discourse.org
+          GIT_NAME: discoursebot

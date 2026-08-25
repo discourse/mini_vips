@@ -1,0 +1,23 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.1.0] - 2026-08-24
+
+### Added
+
+- `version` reports the linked libvips version.
+- `letter-avatar` creates a letter avatar with configurable dimensions and background color.
+- `dominant-color` reports a representative RGB color for an image.
+- `resize` supports cover and contain resizing, proportional scaling, maximum pixel limits, output quality, palette limits, and metadata removal.
+- `convert` converts SVG images to PNG within a caller-supplied pixel limit.
+- A bundled Noto Sans font for consistent letter-avatar rendering.
+- Precompiled glibc Linux and macOS gems for x86-64 and ARM64.
+
+[Unreleased]: https://github.com/discourse/mini_vips/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/discourse/mini_vips/releases/tag/v0.1.0
