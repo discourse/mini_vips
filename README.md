@@ -6,14 +6,6 @@ The platform gems link dynamically to libvips 8.13 or newer. Follow the [libvips
 
 ## CLI
 
-The packaged `libexec/mini_vips` executable follows the libvips CLI convention:
-
-```text
-mini_vips OPERATION REQUIRED-ARGUMENTS [--option-name option-value ...]
-```
-
-The examples use `mini_vips` as the name of the packaged file. The gem does not add it to `PATH`.
-
 ### `version`
 
 Print the linked libvips version.
