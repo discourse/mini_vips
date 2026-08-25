@@ -22,14 +22,6 @@ command = [MiniVips.executable, "dominant-color", input_path]
 
 ## CLI
 
-The executable returns:
-
-- `0` when the operation succeeds.
-- `1` when image processing fails.
-- `2` when the command or its arguments are invalid.
-
-Errors are written to standard error.
-
 ### `version`
 
 Print the linked libvips version.
@@ -148,6 +140,16 @@ where:
 ```
 
 Currently, `convert` only supports SVG input and PNG output.
+
+### Exit status
+
+The executable returns:
+
+- `0` when the operation succeeds.
+- `1` when image processing fails.
+- `2` when the command or its arguments are invalid.
+
+Errors are written to standard error.
 
 ## Development
 
