@@ -11,7 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- The `version`, `letter-avatar`, `resize`, `dominant-color`, and `convert` CLI operations.
+- `version` reports the linked libvips version.
+- `letter-avatar` creates a letter avatar with configurable dimensions and background color.
+- `dominant-color` reports a representative RGB color for an image.
+- `resize` supports cover and contain resizing, proportional scaling, maximum pixel limits, output quality, palette limits, and metadata removal.
+- `convert` converts SVG images to PNG.
 - A bundled Noto Sans font for consistent letter-avatar rendering.
 - Precompiled glibc Linux and macOS gems for x86-64 and ARM64.
 
