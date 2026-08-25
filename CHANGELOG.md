@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-25
+
+### Added
+
+- `MiniVips.asset_paths` exposes the packaged files required by the CLI executable.
+
 ## [0.1.0] - 2026-08-24
 
 ### Added
@@ -19,5 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A bundled Noto Sans font for consistent letter-avatar rendering.
 - Precompiled glibc Linux and macOS gems for x86-64 and ARM64.
 
-[Unreleased]: https://github.com/discourse/mini_vips/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/discourse/mini_vips/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/discourse/mini_vips/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/discourse/mini_vips/releases/tag/v0.1.0

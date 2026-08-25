@@ -20,6 +20,12 @@ require "mini_vips"
 MiniVips.executable
 ```
 
+Use `MiniVips.asset_paths` to access the files required by the CLI executable:
+
+```ruby
+MiniVips.asset_paths
+```
+
 ## CLI
 
 ### `version`
