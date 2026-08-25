@@ -127,16 +127,20 @@ Supported inputs are JPEG, PNG, GIF, WebP, HEIF, and JPEG XL. Transparent pixels
 Convert an SVG into an opaque PNG.
 
 ```text
-$ mini_vips convert image.svg image.png
+$ mini_vips convert image.svg image.png --max-pixels 40000000
 ```
 
 ```text
 usage:
-   convert in out
+   convert in out --max-pixels pixels
 
 where:
    in                 - Input SVG path
    out                - Output PNG path
+
+options:
+   max-pixels         - Maximum output pixel area
+                        required, min: 1
 ```
 
 Currently, `convert` only supports SVG input and PNG output.

@@ -126,6 +126,20 @@ class LetterAvatarTest < Minitest::Test
     )
   end
 
+  def test_rejects_a_missing_bundled_font
+    Dir.mktmpdir do |directory|
+      executable_path = File.join(directory, "libexec", "mini_vips")
+      FileUtils.mkdir_p(File.dirname(executable_path))
+      FileUtils.cp(MiniVips.executable, executable_path)
+
+      _output, error, status =
+        Open3.capture3(executable_path, "letter-avatar", "A", File.join(directory, "avatar.png"))
+
+      assert_equal 1, status.exitstatus
+      assert_includes error, "bundled Noto Sans font is unavailable"
+    end
+  end
+
   private
 
   def generate_avatar(letter:, output_path:, background_color: nil, size: nil, letter_size: nil)

@@ -231,12 +231,18 @@ static int command_letter_avatar(const char *letter, const char *output,
     return 1;
   }
 
+  char *font_file = bundled_font_path(program);
+  if (!g_file_test(font_file, G_FILE_TEST_IS_REGULAR) ||
+      g_access(font_file, R_OK) != 0) {
+    report_error("bundled Noto Sans font is unavailable");
+    g_free(font_file);
+    return 1;
+  }
   char *escaped_letter = g_markup_escape_text(letter, -1);
   char *markup = g_strdup_printf(
       "<span foreground=\"#ffffff\" alpha=\"80%%\">%s</span>",
       escaped_letter);
   char *font = g_strdup_printf("Noto Sans %d", letter_size);
-  char *font_file = bundled_font_path(program);
   VipsImage *text = NULL;
   VipsImage *canvas = NULL;
   VipsImage *flattened = NULL;
@@ -536,8 +542,15 @@ static int command_resize(const char *input, const char *output,
   int target_width = width;
   int target_height = height;
   if (has_scale) {
-    target_width = MAX(1, (int)round(source_width * scale));
-    target_height = MAX(1, (int)round(source_height * scale));
+    double scaled_width = source_width * scale;
+    double scaled_height = source_height * scale;
+    if (scaled_width > 65535.0 || scaled_height > 65535.0) {
+      report_error("resulting dimensions exceed 65535 pixels");
+      VIPS_UNREF(oriented);
+      return 2;
+    }
+    target_width = MAX(1, (int)round(scaled_width));
+    target_height = MAX(1, (int)round(scaled_height));
   } else if (has_max_pixels) {
     double area = (double)source_width * source_height;
     double factor = area > max_pixels ? sqrt(max_pixels / area) : 1.0;
@@ -560,31 +573,45 @@ static int command_resize(const char *input, const char *output,
   VipsImage *thumbnail = NULL;
   VipsImage *positioned = NULL;
   VipsImage *sharpened = NULL;
-  int result = 0;
-  if (has_dimensions && strcmp(fit, "cover") == 0) {
-    double factor = fmax((double)width / source_width,
-                         (double)height / source_height);
-    result = vips_resize(oriented, &thumbnail, factor, NULL);
-    if (result == 0) {
-      VipsCompassDirection direction =
-          strcmp(position, "top") == 0 ? VIPS_COMPASS_DIRECTION_NORTH
-                                        : VIPS_COMPASS_DIRECTION_CENTRE;
-      result = vips_gravity(thumbnail, &positioned, direction, width, height,
-                            NULL);
+  gboolean cover = has_dimensions && strcmp(fit, "cover") == 0;
+  VipsSize thumbnail_size = VIPS_SIZE_BOTH;
+  VipsInteresting crop = VIPS_INTERESTING_NONE;
+  if (has_option(options, "without-enlargement") || has_max_pixels) {
+    thumbnail_size = VIPS_SIZE_DOWN;
+  } else if (has_scale) {
+    thumbnail_size = VIPS_SIZE_FORCE;
+  }
+  if (cover) {
+    if (strcmp(position, "center") == 0) {
+      crop = VIPS_INTERESTING_CENTRE;
+    } else {
+      double factor = fmax((double)width / source_width,
+                           (double)height / source_height);
+      double scaled_width = round(source_width * factor);
+      double scaled_height = round(source_height * factor);
+      if (scaled_width > 65535.0 || scaled_height > 65535.0) {
+        report_error("intermediate dimensions exceed 65535 pixels");
+        VIPS_UNREF(oriented);
+        return 2;
+      }
+      target_width = MAX(width, (int)scaled_width);
+      target_height = MAX(height, (int)scaled_height);
+      thumbnail_size = VIPS_SIZE_FORCE;
     }
-    if (result == 0) {
-      result = vips_sharpen(positioned, &sharpened, "sigma", 0.5, "m1", 0.7,
-                            NULL);
-    }
-  } else {
-    VipsSize size = has_option(options, "without-enlargement") || has_max_pixels
-                        ? VIPS_SIZE_DOWN
-                        : VIPS_SIZE_BOTH;
-    result = has_scale
-                 ? vips_resize(oriented, &thumbnail, scale, NULL)
-                 : vips_thumbnail(input, &thumbnail, target_width, "height",
-                                  target_height, "size", size, "no_rotate",
-                                  FALSE, "fail_on", VIPS_FAIL_ON_NONE, NULL);
+  }
+
+  int result = vips_thumbnail(
+      input, &thumbnail, target_width, "height", target_height, "size",
+      thumbnail_size, "crop", crop, "no_rotate", FALSE, "fail_on",
+      VIPS_FAIL_ON_NONE, NULL);
+  if (result == 0 && cover && strcmp(position, "top") == 0) {
+    result = vips_gravity(thumbnail, &positioned,
+                          VIPS_COMPASS_DIRECTION_NORTH, width, height, NULL);
+  }
+  if (result == 0 && cover) {
+    VipsImage *cover_image = positioned ? positioned : thumbnail;
+    result = vips_sharpen(cover_image, &sharpened, "sigma", 0.5, "m1", 0.7,
+                          NULL);
   }
 
   if (result == 0) {
@@ -667,8 +694,15 @@ cleanup:
   return result;
 }
 
-static int command_convert(const char *input, const char *output) {
+static int command_convert(const char *input, const char *output,
+                           options_t *options) {
   allow_loader_family("VipsForeignLoadSvg");
+
+  int max_pixels = integer_option(options, "max-pixels", 0);
+  if (max_pixels < 1) {
+    report_error("--max-pixels must be greater than 0");
+    return 2;
+  }
 
   if (!valid_input_path(input)) {
     report_error("input filename options are not supported");
@@ -685,6 +719,15 @@ static int command_convert(const char *input, const char *output) {
   VipsImage *svg = NULL;
   VipsImage *flattened = NULL;
   int result = vips_svgload(input, &svg, NULL);
+  if (result == 0) {
+    guint64 width = vips_image_get_width(svg);
+    guint64 height = vips_image_get_height(svg);
+    if (width == 0 || height == 0 || width > (guint64)max_pixels / height) {
+      report_error("SVG exceeds --max-pixels");
+      VIPS_UNREF(svg);
+      return 1;
+    }
+  }
   if (result == 0) {
     result = vips_flatten(svg, &flattened, NULL);
   }
@@ -744,8 +787,9 @@ int main(int argc, char **argv) {
     const char *input = required_argument(argc, argv, 2, "in");
     const char *output = required_argument(argc, argv, 3, "out");
     parse_options(argc, argv, 4, &options);
-    validate_options(&options, NULL, 0);
-    result = command_convert(input, output);
+    const char *allowed[] = {"max-pixels"};
+    validate_options(&options, allowed, 1);
+    result = command_convert(input, output, &options);
   } else {
     report_error("unsupported helper command");
   }

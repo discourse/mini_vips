@@ -39,6 +39,16 @@ class ResizeTest < Minitest::Test
     end
   end
 
+  def test_contains_within_the_requested_dimensions
+    Dir.mktmpdir do |directory|
+      output_path = File.join(directory, "output.png")
+
+      resize("logo.png", output_path, "--width", "50", "--height", "50")
+
+      assert_png(output_path, width: 50, height: 14)
+    end
+  end
+
   def test_scales_proportionally
     Dir.mktmpdir do |directory|
       output_path = File.join(directory, "output.png")
@@ -46,6 +56,62 @@ class ResizeTest < Minitest::Test
       resize("7x11.svg", output_path, "--scale", "0.333")
 
       assert_png(output_path, width: 2, height: 4)
+    end
+  end
+
+  def test_rejects_scaled_dimensions_above_the_limit
+    assert_command_error(
+      "resize",
+      fixture_path("wide.svg"),
+      "output.png",
+      "--scale",
+      "100",
+      exit_status: 2,
+      message: "resulting dimensions exceed 65535 pixels",
+    )
+  end
+
+  def test_applies_image_orientation
+    Dir.mktmpdir do |directory|
+      input_path = File.join(directory, "oriented.jpg")
+      File.binwrite(input_path, [File.read(fixture_path("oriented.jpg.hex")).strip].pack("H*"))
+      output_path = File.join(directory, "oriented.png")
+
+      run_helper("resize", input_path, output_path, "--scale", "1")
+
+      assert_png(output_path, width: 8, height: 16)
+    end
+  end
+
+  def test_uses_the_first_animated_frame
+    Dir.mktmpdir do |directory|
+      output_path = File.join(directory, "output.png")
+
+      resize("tiny_animated.gif", output_path, "--scale", "1")
+
+      image = assert_png(output_path, width: 2, height: 1)
+      assert image.pixels.all? { |pixel| pixel == ChunkyPNG::Color.rgb(255, 0, 0) }
+    end
+  end
+
+  def test_converts_cmyk_to_srgb_for_cover_and_scale
+    Dir.mktmpdir do |directory|
+      input_path = File.join(directory, "cmyk.jpg")
+      File.binwrite(input_path, [File.read(fixture_path("cmyk.jpg.hex")).strip].pack("H*"))
+      commands = [%w[--width 8 --height 8 --fit cover], %w[--scale 0.5]]
+
+      commands.each_with_index do |arguments, index|
+        output_path = File.join(directory, "output-#{index}.jpg")
+        run_helper("resize", input_path, output_path, *arguments)
+
+        jpeg = File.binread(output_path)
+        marker =
+          (0...(jpeg.bytesize - 1)).find do |offset|
+            jpeg.getbyte(offset) == 0xFF && [0xC0, 0xC1, 0xC2].include?(jpeg.getbyte(offset + 1))
+          end
+        refute_nil marker
+        assert_equal 3, jpeg.getbyte(marker + 9)
+      end
     end
   end
 
