@@ -12,12 +12,12 @@ Add mini_vips to the application's `Gemfile`, then run `bundle install`:
 gem "mini_vips"
 ```
 
-Use `MiniVips.executable` to resolve the executable packaged for the current platform, then pass that path and one of the commands below to the application's process runner:
+Use `MiniVips.executable` to access the CLI executable:
 
 ```ruby
 require "mini_vips"
 
-command = [MiniVips.executable, "dominant-color", input_path]
+MiniVips.executable
 ```
 
 ## CLI
